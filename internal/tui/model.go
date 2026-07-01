@@ -41,6 +41,8 @@ type model struct {
 	btnX1     int
 	btnFound  bool
 
+	scheduled bool // true while waiting for the next 5s tick
+
 	// process modal state (feature 7)
 	modal      bool
 	procRows   []collector.ProcInfo
@@ -62,7 +64,7 @@ func New() *model {
 }
 
 func (m *model) Init() tea.Cmd {
-	return collectCmd(m.col)
+	return collectAllCmd(m.col)
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -72,18 +74,24 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.recompute()
 		return m, nil
 
-	case snapshotMsg:
-		m.snap = msg.snap
+	case subsystemMsg:
+		m.mergeSnap(msg.snap)
 		m.haveSnap = true
-		m.pushHistory()
+		m.pushHistoryFor(msg.part)
 		if m.modal {
 			m.rebuildProcRows()
 		}
 		m.recompute()
-		return m, scheduleTick()
+		// Schedule the next 5-second refresh once per collection round.
+		if !m.scheduled {
+			m.scheduled = true
+			return m, scheduleTick()
+		}
+		return m, nil
 
 	case tickMsg:
-		return m, collectCmd(m.col)
+		m.scheduled = false
+		return m, collectAllCmd(m.col)
 
 	case tea.KeyMsg:
 		if m.modal {
@@ -289,6 +297,40 @@ func (m *model) dashFooter() string {
 			m.snap.CPU.Overall, memPct, m.snap.Time.Format("15:04:05")))
 	}
 	return joinLR(help, status, m.width)
+}
+
+
+func (m *model) mergeSnap(s collector.Snapshot) {
+	if len(s.CPU.PerCore) > 0 || s.CPU.Overall != 0 {
+		m.snap.CPU = s.CPU
+	}
+	if s.Mem.Total > 0 {
+		m.snap.Mem = s.Mem
+	}
+	if len(s.Disk.Mounts) > 0 {
+		m.snap.Disk = s.Disk
+	}
+	if s.Net.TotalUpload > 0 || s.Net.TotalDownload > 0 {
+		m.snap.Net = s.Net
+	}
+	if s.GPU.Available || len(s.GPU.Cards) > 0 {
+		m.snap.GPU = s.GPU
+	}
+	if len(s.Proc.All) > 0 {
+		m.snap.Proc = s.Proc
+	}
+	m.snap.Time = s.Time
+}
+
+func (m *model) pushHistoryFor(part string) {
+	switch part {
+	case "cpu":
+		m.cpuHist = pushHist(m.cpuHist, m.snap.CPU.Overall)
+	case "net":
+		m.downHist = pushHist(m.downHist, m.snap.Net.DownloadPerSec)
+	case "gpu":
+		m.gpuHist = pushHist(m.gpuHist, gpuAvgLoad(m.snap.GPU))
+	}
 }
 
 func (m *model) pushHistory() {

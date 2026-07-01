@@ -3,13 +3,12 @@ package tui
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"xtop/internal/collector"
 )
 
 const (
-	openProcLabel  = "打开进程管理 (P)"
+	openProcLabel  = "打开进程管理"
 	openProcNeedle = "打开进程管理"
 )
 
@@ -40,11 +39,8 @@ func procCard(p collector.ProcStat, innerWidth, innerHeight int, focused bool, s
 		lines = append(lines, faintStyle.Render("无进程数据"))
 	}
 
-	lines = append(lines, "")
-	btn := buttonStyle.Render(openProcLabel)
-	lines = append(lines, strings.Split(btn, "\n")...)
-
-	return renderCard(innerWidth, innerHeight, "☰", "进程", "", lines, focused, scroll)
+	btn := rowButtonStyle.Render(openProcLabel)
+	return renderCard(innerWidth, innerHeight, "☰", "进程", btn, lines, focused, scroll)
 }
 
 // lipglossPct renders a CPU percentage coloured by load level.

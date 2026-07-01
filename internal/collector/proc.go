@@ -8,7 +8,7 @@ import (
 	"github.com/shirou/gopsutil/v4/process"
 )
 
-const topProcCount = 10
+const topProcCount = 20
 
 // collectProc walks every process, deriving per-process CPU% from the delta of
 // cumulative CPU time since the previous tick (cheap: one Times() call each,
@@ -23,6 +23,12 @@ func (c *Collector) collectProc(dt float64) ProcStat {
 	list := make([]ProcInfo, 0, len(procs))
 
 	for _, p := range procs {
+		// Skip processes whose command can't be read: they vanished mid-scan
+		// and would otherwise show up as a useless "?" row.
+		cmd := commandOf(p)
+		if cmd == "?" {
+			continue
+		}
 		pid := p.Pid
 
 		var cpuSecs float64
@@ -38,7 +44,7 @@ func (c *Collector) collectProc(dt float64) ProcStat {
 			}
 		}
 
-		info := ProcInfo{PID: pid, CPU: cpuPct}
+		info := ProcInfo{PID: pid, CPU: cpuPct, Command: cmd}
 
 		if u, err := p.Username(); err == nil {
 			info.User = u
@@ -50,7 +56,6 @@ func (c *Collector) collectProc(dt float64) ProcStat {
 		if ct, err := p.CreateTime(); err == nil && ct > 0 {
 			info.Start = time.UnixMilli(ct)
 		}
-		info.Command = commandOf(p)
 
 		list = append(list, info)
 	}
@@ -74,6 +79,9 @@ func shortStatus(p *process.Process) string {
 		return "?"
 	}
 	s := ss[0]
+	if len(s) == 0 {
+		return "?"
+	}
 	if len(s) == 1 {
 		return strings.ToUpper(s)
 	}
