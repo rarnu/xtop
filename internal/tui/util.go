@@ -1,0 +1,66 @@
+package tui
+
+import (
+	"regexp"
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+)
+
+// lipglossFg is a shorthand for a foreground-only style.
+func lipglossFg(c lipgloss.Color) lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(c)
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// fitCell truncates a plain string to width and pads it (left or right aligned)
+// so the result is exactly width cells. Style the result afterwards.
+func fitCell(s string, width int, rightAlign bool) string {
+	if width <= 0 {
+		return ""
+	}
+	s = truncPlain(s, width)
+	pad := width - lipgloss.Width(s)
+	if pad < 0 {
+		pad = 0
+	}
+	if rightAlign {
+		return strings.Repeat(" ", pad) + s
+	}
+	return s + strings.Repeat(" ", pad)
+}
+
+var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+// stripANSI removes SGR escape sequences so a rendered line can be searched or
+// measured as plain text.
+func stripANSI(s string) string { return ansiRe.ReplaceAllString(s, "") }
+
+// findText locates needle inside a slice of rendered (possibly styled) lines,
+// returning the line index and the visible column span [x0,x1) of the match.
+func findText(lines []string, needle string) (line, x0, x1 int, ok bool) {
+	for i, l := range lines {
+		plain := stripANSI(l)
+		idx := strings.Index(plain, needle)
+		if idx < 0 {
+			continue
+		}
+		x0 = lipgloss.Width(plain[:idx])
+		x1 = x0 + lipgloss.Width(needle)
+		return i, x0, x1, true
+	}
+	return 0, 0, 0, false
+}
