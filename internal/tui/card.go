@@ -6,65 +6,34 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// truncPlain truncates a plain (unstyled) string to width runes, adding an
-// ellipsis when it overflows.
-func truncPlain(s string, width int) string {
-	if width <= 0 {
-		return ""
+// renderCard draws a bordered card of fixed inner size and renders an optional
+// vertical scrollbar when body content overflows. Mouse wheel over the card
+// scrolls the body.
+//
+// The returned block is (innerWidth+4) x (innerHeight+2) cells.
+func renderCard(innerWidth, innerHeight int, icon, title, headerRight string, bodyLines []string, focused bool, scroll *cardScroll) string {
+	if innerHeight < 2 {
+		innerHeight = 2
 	}
-	r := []rune(s)
-	if lipgloss.Width(s) <= width {
-		return s
-	}
-	if width == 1 {
-		return "…"
-	}
-	// Trim rune-by-rune until it fits with room for the ellipsis.
-	for len(r) > 0 && lipgloss.Width(string(r))+1 > width {
-		r = r[:len(r)-1]
-	}
-	return string(r) + "…"
-}
 
-// padRow right-pads a (possibly styled) line with spaces to exactly width cells.
-func padRow(s string, width int) string {
-	w := lipgloss.Width(s)
-	if w >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-w)
-}
+	bodyH := innerHeight
+	visible, sbY0, sbY1, hasSB := cardBody(bodyLines, bodyH, innerWidth, scroll)
 
-// joinLR places left and right on one line separated by filler spaces so the
-// total is exactly width cells. Right content is dropped if there is no room.
-func joinLR(left, right string, width int) string {
-	lw := lipgloss.Width(left)
-	rw := lipgloss.Width(right)
-	if lw+rw+1 > width {
-		return padRow(left, width)
+	if hasSB && innerWidth > scrollbarMargin {
+		bar := renderScrollbar(bodyH, sbY0, sbY1)
+		contentW := innerWidth - scrollbarMargin
+		padCols := scrollbarMargin - 1
+		for i := range visible {
+			visible[i] = fitStyledLine(visible[i], contentW) + strings.Repeat(" ", padCols) + bar[i]
+		}
 	}
-	gap := width - lw - rw
-	return left + strings.Repeat(" ", gap) + right
-}
 
-// divider returns a full-width dim horizontal rule.
-func divider(width int) string {
-	if width < 1 {
-		width = 1
-	}
-	return dividerStyle.Render(strings.Repeat("─", width))
-}
-
-// renderCard draws a bordered card: header (icon + title, optional right-aligned
-// summary), a divider, then the body lines. innerWidth is the content width
-// inside the border+padding; the returned block is innerWidth+4 cells wide.
-func renderCard(innerWidth int, icon, title, headerRight string, bodyLines []string, focused bool) string {
 	header := joinLR(iconStyle.Render(icon)+" "+titleStyle.Render(title), headerRight, innerWidth)
 
-	rows := make([]string, 0, len(bodyLines)+2)
+	rows := make([]string, 0, len(visible)+2)
 	rows = append(rows, header)
 	rows = append(rows, divider(innerWidth))
-	for _, l := range bodyLines {
+	for _, l := range visible {
 		rows = append(rows, padRow(l, innerWidth))
 	}
 
@@ -73,7 +42,115 @@ func renderCard(innerWidth int, icon, title, headerRight string, bodyLines []str
 	if focused {
 		style = cardFocusStyle
 	}
-	// lipgloss Width is the content box *including* horizontal padding, so add
-	// the 2 padding cells to keep the text area exactly innerWidth wide.
-	return style.Width(innerWidth + 2).Render(content)
+	return style.Width(innerWidth + 2).Height(innerHeight + 2).Render(content)
+}
+
+// fitStyledLine truncates a possibly-styled line to exactly target visible
+// cells, preserving ANSI escape sequences. It pads with spaces if shorter.
+func fitStyledLine(s string, target int) string {
+	plain := stripANSI(s)
+	w := lipgloss.Width(plain)
+	if w <= target {
+		return s + strings.Repeat(" ", target-w)
+	}
+	// Need to truncate while keeping styles.
+	out := truncateStyled(s, target)
+	return out
+}
+
+// truncateStyled shortens a styled string to fit target visible cells.
+// It walks rune-by-rune, toggling ANSI state, and stops before exceeding target.
+func truncateStyled(s string, target int) string {
+	var out strings.Builder
+	visible := 0
+	inESC := false
+	for _, r := range s {
+		if inESC {
+			out.WriteRune(r)
+			if r == 'm' {
+				inESC = false
+			}
+			continue
+		}
+		if r == '\x1b' {
+			out.WriteRune(r)
+			inESC = true
+			continue
+		}
+		rw := lipgloss.Width(string(r))
+		if visible+rw > target {
+			break
+		}
+		out.WriteRune(r)
+		visible += rw
+	}
+	if visible < target {
+		out.WriteString(strings.Repeat(" ", target-visible))
+	}
+	return out.String()
+}
+
+// cardBody returns the visible body lines, clipping/padding to visibleH and
+// computing scrollbar geometry. It mutates scroll.offset/max.
+func cardBody(body []string, visibleH, innerWidth int, scroll *cardScroll) (lines []string, sbY0, sbY1 int, hasSB bool) {
+	if visibleH < 1 {
+		visibleH = 1
+	}
+	contentH := len(body)
+	if contentH <= visibleH {
+		lines = make([]string, visibleH)
+		for i := 0; i < visibleH; i++ {
+			if i < contentH && body[i] != "" {
+				lines[i] = padRow(body[i], innerWidth)
+			} else {
+				lines[i] = strings.Repeat(" ", innerWidth)
+			}
+		}
+		scroll.max = 0
+		scroll.offset = 0
+		return lines, 0, 0, false
+	}
+
+	scroll.max = contentH - visibleH
+	if scroll.offset < 0 {
+		scroll.offset = 0
+	}
+	if scroll.offset > scroll.max {
+		scroll.offset = scroll.max
+	}
+
+	lines = make([]string, visibleH)
+	for i := 0; i < visibleH; i++ {
+		line := body[scroll.offset+i]
+		if line == "" {
+			lines[i] = strings.Repeat(" ", innerWidth)
+		} else {
+			lines[i] = padRow(line, innerWidth)
+		}
+	}
+
+	trackH := visibleH
+	thumbRatio := float64(visibleH) / float64(contentH)
+	thumbH := int(float64(trackH) * thumbRatio)
+	if thumbH < 1 {
+		thumbH = 1
+	}
+	thumbPos := 0
+	if scroll.max > 0 {
+		thumbPos = int(float64(scroll.offset) / float64(scroll.max) * float64(trackH-thumbH))
+	}
+
+	return lines, thumbPos, thumbPos + thumbH, true
+}
+
+func renderScrollbar(visibleH, y0, y1 int) []string {
+	col := make([]string, visibleH)
+	for i := 0; i < visibleH; i++ {
+		if i >= y0 && i < y1 {
+			col[i] = lipgloss.NewStyle().Foreground(colGreen).Render("█")
+		} else {
+			col[i] = lipgloss.NewStyle().Foreground(colTrack).Render("│")
+		}
+	}
+	return col
 }

@@ -11,14 +11,15 @@ import (
 
 // diskCard renders one block per mount: a fill "tank", read/write rates and
 // capacity, matching DISK.png.
-func diskCard(d collector.DiskStat, innerWidth int, focused bool) string {
+func diskCard(d collector.DiskStat, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
 	header := pillStyle.Render(fmtSizeF(float64(d.UsedBytes)) + " / " + fmtSizeF(float64(d.TotalBytes)))
+	cw := contentWidth(innerWidth)
 
 	if len(d.Mounts) == 0 {
-		return renderCard(innerWidth, "▦", "磁盘", header, []string{faintStyle.Render("无磁盘数据")}, focused)
+		return renderCard(innerWidth, innerHeight, "▦", "磁盘", header, []string{faintStyle.Render("无磁盘数据")}, focused, scroll)
 	}
 
-	tw := maxInt(innerWidth-5, 8) // text block width beside the 3-wide tank
+	tw := maxInt(cw-5, 8) // text block width beside the 3-wide tank
 	half := tw / 2
 
 	var lines []string
@@ -30,7 +31,7 @@ func diskCard(d collector.DiskStat, innerWidth int, focused bool) string {
 		head := joinLR(
 			dot(levelColor(m.UsedPercent))+" "+textStyle.Render(truncPlain(m.Mountpoint, tw-8)),
 			labelStyle.Render("类型 ")+badgeStyle.Render(fstypeLabel(m.Fstype)),
-			innerWidth)
+			cw)
 		lines = append(lines, head)
 
 		textLines := []string{
@@ -45,7 +46,7 @@ func diskCard(d collector.DiskStat, innerWidth int, focused bool) string {
 		lines = append(lines, strings.Split(block, "\n")...)
 	}
 
-	return renderCard(innerWidth, "▦", "磁盘", header, lines, focused)
+	return renderCard(innerWidth, innerHeight, "▦", "磁盘", header, lines, focused, scroll)
 }
 
 // twoCol lays two styled values into columns of width `left` and `total-left`.

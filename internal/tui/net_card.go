@@ -4,12 +4,13 @@ import "xtop/internal/collector"
 
 // netCard renders upload/download speed and cumulative traffic with a download
 // sparkline, matching NETWORK.png.
-func netCard(n collector.NetStat, downHist []float64, innerWidth int, focused bool) string {
-	sparkW := clampInt(innerWidth/2, 8, maxInt(innerWidth-8, 8))
+func netCard(n collector.NetStat, downHist []float64, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
+	cw := contentWidth(innerWidth)
+	sparkW := clampInt(cw/2, 8, maxInt(cw-8, 8))
 	header := sparkline(sparkW, downHist, colBlue)
 
-	labelW := clampInt(12, 6, innerWidth/2)
-	rest := innerWidth - labelW
+	labelW := clampInt(12, 6, cw/2)
+	rest := cw - labelW
 	speedW := rest / 2
 	totalW := rest - speedW
 
@@ -26,5 +27,5 @@ func netCard(n collector.NetStat, downHist []float64, innerWidth int, focused bo
 		valueStyle.Render(fitCell(fmtSizeF(float64(n.TotalDownload)), totalW, false))
 
 	lines := []string{head, "", up, down}
-	return renderCard(innerWidth, "◍", "网络", header, lines, focused)
+	return renderCard(innerWidth, innerHeight, "◍", "网络", header, lines, focused, scroll)
 }

@@ -12,8 +12,9 @@ var gpuNameStyle = lipgloss.NewStyle().Foreground(colGreen).Bold(true)
 
 // gpuCard renders one block per GPU (power / memory / temperature / load), or a
 // graceful message when no GPU data source is available. (GPU.png)
-func gpuCard(g collector.GPUStat, hist []float64, innerWidth int, focused bool) string {
-	sparkW := clampInt(innerWidth/2, 8, maxInt(innerWidth-8, 8))
+func gpuCard(g collector.GPUStat, hist []float64, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
+	cw := contentWidth(innerWidth)
+	sparkW := clampInt(cw/2, 8, maxInt(cw-8, 8))
 	header := sparkline(sparkW, hist, colBlue)
 
 	if !g.Available || len(g.Cards) == 0 {
@@ -21,7 +22,7 @@ func gpuCard(g collector.GPUStat, hist []float64, innerWidth int, focused bool) 
 		if msg == "" {
 			msg = "无 GPU 数据"
 		}
-		return renderCard(innerWidth, "◉", "GPU", header, []string{faintStyle.Render(msg)}, focused)
+		return renderCard(innerWidth, innerHeight, "◉", "GPU", header, []string{faintStyle.Render(msg)}, focused, scroll)
 	}
 
 	var lines []string
@@ -29,16 +30,16 @@ func gpuCard(g collector.GPUStat, hist []float64, innerWidth int, focused bool) 
 		if i > 0 {
 			lines = append(lines, "")
 		}
-		lines = append(lines, gpuNameStyle.Render(truncPlain(c.Name, innerWidth)))
-		lines = append(lines, joinLR(labelStyle.Render("功耗"), valueStyle.Render(gpuPower(c.PowerW)), innerWidth))
-		lines = append(lines, joinLR(labelStyle.Render("内存"), valueStyle.Render(gpuMem(c)), innerWidth))
+		lines = append(lines, gpuNameStyle.Render(truncPlain(c.Name, cw)))
+		lines = append(lines, joinLR(labelStyle.Render("功耗"), valueStyle.Render(gpuPower(c.PowerW)), cw))
+		lines = append(lines, joinLR(labelStyle.Render("内存"), valueStyle.Render(gpuMem(c)), cw))
 		if c.MemTotal > 0 {
-			lines = append(lines, blockBar(innerWidth, float64(c.MemUsed)/float64(c.MemTotal)*100))
+			lines = append(lines, blockBar(cw, float64(c.MemUsed)/float64(c.MemTotal)*100))
 		}
-		lines = append(lines, gaugeRow("温度", c.TempC, gpuTemp(c.TempC), innerWidth))
-		lines = append(lines, gaugeRow("负载", c.LoadPct, gpuLoad(c.LoadPct), innerWidth))
+		lines = append(lines, gaugeRow("温度", c.TempC, gpuTemp(c.TempC), cw))
+		lines = append(lines, gaugeRow("负载", c.LoadPct, gpuLoad(c.LoadPct), cw))
 	}
-	return renderCard(innerWidth, "◉", "GPU", header, lines, focused)
+	return renderCard(innerWidth, innerHeight, "◉", "GPU", header, lines, focused, scroll)
 }
 
 // gaugeRow renders: label + gauge + right-aligned value. gaugePct <0 draws an

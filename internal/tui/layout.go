@@ -6,58 +6,64 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const colGap = 1 // columns between dashboard cards
+const (
+	gridCols = 3
+	gridRows = 2
+	gapH     = 1 // horizontal gap between cards
+	gapV     = 1 // vertical gap between cards
+)
 
-// dashboardColumns picks a column count and per-card inner width for the width.
-func (m *model) dashboardGeometry() (numCols, inner int) {
-	numCols = clampInt(m.width/46, 1, 3)
-	outer := (m.width - (numCols-1)*colGap) / numCols
-	inner = outer - 4 // border (2) + horizontal padding (2)
-	if inner < 20 {
-		inner = 20
+// dashboardGeometry returns the fixed inner dimensions for every card in the
+// 2x3 grid. Cards resize automatically with the terminal window.
+func (m *model) dashboardGeometry() (innerW, innerH int) {
+	// Card outer width = (terminal width - gaps) / 3.
+	outerW := (m.width - (gridCols-1)*gapH) / gridCols
+	innerW = outerW - 4 // border(2) + horizontal padding(2)
+	if innerW < 8 {
+		innerW = 8
 	}
-	return numCols, inner
+
+	// Available height: terminal height minus the reserved bottom offset and
+	// the vertical gap between the two card rows. Each card gets half of the
+	// remainder. offset is in terminal cells (rows); 64px is approximated as
+	// 3 terminal rows.
+	const offsetRows = 3
+	availH := m.height - footerHeight - offsetRows - (gridRows-1)*gapV
+	if availH < gridRows*4 {
+		availH = gridRows * 4 // minimum 4 rows per card outer height
+	}
+	outerH := availH / gridRows
+	innerH = outerH - 2 // border only (padding is horizontal)
+	if innerH < 2 {
+		innerH = 2
+	}
+	return innerW, innerH
 }
 
-// renderDashboard renders the six cards and packs them into a balanced
-// multi-column grid, returning the content as individual lines.
+// renderDashboard lays the six cards in a fixed 2x3 grid:
+//   CPU    Disk   GPU
+//   Mem    Net    Proc
 func (m *model) renderDashboard() []string {
 	if m.width < 8 {
 		return []string{""}
 	}
-	numCols, inner := m.dashboardGeometry()
+	w, h := m.dashboardGeometry()
 
 	cards := []string{
-		cpuCard(m.snap.CPU, m.cpuHist, inner, false),
-		memCard(m.snap.Mem, inner, false),
-		diskCard(m.snap.Disk, inner, false),
-		netCard(m.snap.Net, m.downHist, inner, false),
-		gpuCard(m.snap.GPU, m.gpuHist, inner, false),
-		procCard(m.snap.Proc, inner, false),
+		cpuCard(m.snap.CPU, m.cpuHist, w, h, false, &m.scrollBars[cardCPU]),
+		diskCard(m.snap.Disk, w, h, false, &m.scrollBars[cardDisk]),
+		gpuCard(m.snap.GPU, m.gpuHist, w, h, false, &m.scrollBars[cardGPU]),
+		memCard(m.snap.Mem, w, h, false, &m.scrollBars[cardMem]),
+		netCard(m.snap.Net, m.downHist, w, h, false, &m.scrollBars[cardNet]),
+		procCard(m.snap.Proc, w, h, false, &m.scrollBars[cardProc]),
 	}
 
-	// Masonry: drop each card into the currently shortest column for balance.
-	colHeights := make([]int, numCols)
-	colCards := make([][]string, numCols)
-	for _, c := range cards {
-		shortest := 0
-		for i := 1; i < numCols; i++ {
-			if colHeights[i] < colHeights[shortest] {
-				shortest = i
-			}
-		}
-		colCards[shortest] = append(colCards[shortest], c)
-		colHeights[shortest] += lipgloss.Height(c) + 1 // +1 for the vertical gap
-	}
-
-	columns := make([]string, 0, numCols*2-1)
-	for i := 0; i < numCols; i++ {
-		if i > 0 {
-			columns = append(columns, strings.Repeat(" ", colGap)) // gap column
-		}
-		columns = append(columns, strings.Join(colCards[i], "\n\n"))
-	}
-
-	grid := lipgloss.JoinHorizontal(lipgloss.Top, columns...)
+	gap := strings.Repeat(" ", gapH)
+	row1 := lipgloss.JoinHorizontal(lipgloss.Top, cards[0], gap, cards[1], gap, cards[2])
+	row2 := lipgloss.JoinHorizontal(lipgloss.Top, cards[3], gap, cards[4], gap, cards[5])
+	// Row height from geometry already accounts for the footer and offset, so
+	// no extra gap line is needed. Join rows directly; the resulting height
+	// equals m.height - footerHeight - offsetRows and leaves that space free.
+	grid := lipgloss.JoinVertical(lipgloss.Left, row1, row2)
 	return strings.Split(grid, "\n")
 }

@@ -7,11 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// lipglossFg is a shorthand for a foreground-only style.
-func lipglossFg(c lipgloss.Color) lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(c)
-}
-
 func maxInt(a, b int) int {
 	if a > b {
 		return a
@@ -24,6 +19,54 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// truncPlain truncates a plain (unstyled) string to width runes, adding an
+// ellipsis when it overflows.
+func truncPlain(s string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	r := []rune(s)
+	if lipgloss.Width(s) <= width {
+		return s
+	}
+	if width == 1 {
+		return "…"
+	}
+	for len(r) > 0 && lipgloss.Width(string(r))+1 > width {
+		r = r[:len(r)-1]
+	}
+	return string(r) + "…"
+}
+
+// padRow right-pads a (possibly styled) line with spaces to exactly width cells.
+func padRow(s string, width int) string {
+	w := lipgloss.Width(s)
+	if w >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-w)
+}
+
+// joinLR places left and right on one line separated by filler spaces so the
+// total is exactly width cells. Right content is dropped if there is no room.
+func joinLR(left, right string, width int) string {
+	lw := lipgloss.Width(left)
+	rw := lipgloss.Width(right)
+	if lw+rw+1 > width {
+		return padRow(left, width)
+	}
+	gap := width - lw - rw
+	return left + strings.Repeat(" ", gap) + right
+}
+
+// divider returns a full-width dim horizontal rule.
+func divider(width int) string {
+	if width < 1 {
+		width = 1
+	}
+	return dividerStyle.Render(strings.Repeat("─", width))
 }
 
 // fitCell truncates a plain string to width and pads it (left or right aligned)
@@ -63,4 +106,9 @@ func findText(lines []string, needle string) (line, x0, x1 int, ok bool) {
 		return i, x0, x1, true
 	}
 	return 0, 0, 0, false
+}
+
+// lipglossFg is a shorthand for a foreground-only style.
+func lipglossFg(c lipgloss.Color) lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(c)
 }

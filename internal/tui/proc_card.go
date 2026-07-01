@@ -15,9 +15,10 @@ const (
 
 // procCard renders the top-N processes by CPU plus the button that opens the
 // full process manager (feature 6).
-func procCard(p collector.ProcStat, innerWidth int, focused bool) string {
+func procCard(p collector.ProcStat, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
+	cw := contentWidth(innerWidth)
 	pidW, userW, cpuW, memW := 7, 9, 8, 8
-	cmdW := maxInt(innerWidth-pidW-userW-cpuW-memW, 6)
+	cmdW := maxInt(cw-pidW-userW-cpuW-memW, 6)
 
 	head := labelStyle.Render(
 		fitCell("PID", pidW, false) +
@@ -43,7 +44,7 @@ func procCard(p collector.ProcStat, innerWidth int, focused bool) string {
 	btn := buttonStyle.Render(openProcLabel)
 	lines = append(lines, strings.Split(btn, "\n")...)
 
-	return renderCard(innerWidth, "☰", "进程", "", lines, focused)
+	return renderCard(innerWidth, innerHeight, "☰", "进程", "", lines, focused, scroll)
 }
 
 // lipglossPct renders a CPU percentage coloured by load level.

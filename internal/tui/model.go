@@ -31,8 +31,10 @@ type model struct {
 	downHist []float64
 	gpuHist  []float64
 
+	// per-card body scroll offsets
+	scrollBars cardScrollBars
+
 	// dashboard state
-	scroll    int
 	dashLines []string
 	btnLine   int // full-content line index of the "open process manager" button
 	btnX0     int
@@ -106,19 +108,21 @@ func (m *model) View() string {
 		return renderProcModal(m)
 	}
 
-	visibleH := maxInt(m.height-1, 1)
 	lines := m.dashLines
-	start := clampInt(m.scroll, 0, maxInt(len(lines)-1, 0))
-	end := minInt(start+visibleH, len(lines))
-	var view []string
-	if start < len(lines) {
-		view = append(view, lines[start:end]...)
+	contentH := m.height - footerHeight
+	if len(lines) > contentH {
+		lines = lines[:contentH]
 	}
-	for len(view) < visibleH {
-		view = append(view, "")
+	if len(lines) < contentH {
+		// Should not happen because geometry sizes cards to fit.
+		for len(lines) < contentH {
+			lines = append(lines, "")
+		}
 	}
-	return strings.Join(view, "\n") + "\n" + m.dashFooter()
+	return strings.Join(lines, "\n") + "\n" + m.dashFooter()
 }
+
+const footerHeight = 1 // status/help bar at the very bottom
 
 // ---- dashboard input ---------------------------------------------------
 
@@ -129,39 +133,31 @@ func (m *model) updateDashKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "p", "enter":
 		m.openModal()
 		return m, nil
-	case "up", "k":
-		m.scrollBy(-1)
-	case "down", "j":
-		m.scrollBy(1)
-	case "pgup":
-		m.scrollBy(-(m.height - 2))
-	case "pgdown", " ":
-		m.scrollBy(m.height - 2)
-	case "home", "g":
-		m.scroll = 0
-	case "end", "G":
-		m.scroll = len(m.dashLines)
-		m.clampDashScroll()
 	}
 	return m, nil
 }
 
 func (m *model) updateDashMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 	switch msg.Button {
-	case tea.MouseButtonWheelUp:
-		m.scrollBy(-3)
-	case tea.MouseButtonWheelDown:
-		m.scrollBy(3)
+	case tea.MouseButtonWheelUp, tea.MouseButtonWheelDown:
+		if key, ok := m.hitCard(msg.X, msg.Y); ok {
+			cs := &m.scrollBars[key]
+			delta := 1
+			if msg.Button == tea.MouseButtonWheelUp {
+				delta = -1
+			}
+			cs.offset += delta
+			m.recompute()
+		}
 	case tea.MouseButtonLeft:
 		if msg.Action != tea.MouseActionPress {
 			return m, nil
 		}
 		if m.btnFound {
-			fullY := m.scroll + msg.Y
-			// Accept the button's text line and its border rows.
-			if fullY >= m.btnLine-1 && fullY <= m.btnLine+1 &&
+			if msg.Y >= m.btnLine-1 && msg.Y <= m.btnLine+1 &&
 				msg.X >= m.btnX0-2 && msg.X <= m.btnX1+2 {
 				m.openModal()
+				return m, nil
 			}
 		}
 	}
@@ -279,22 +275,10 @@ func (m *model) recompute() {
 	} else {
 		m.btnFound = false
 	}
-	m.clampDashScroll()
-}
-
-func (m *model) scrollBy(delta int) {
-	m.scroll += delta
-	m.clampDashScroll()
-}
-
-func (m *model) clampDashScroll() {
-	visibleH := maxInt(m.height-1, 1)
-	maxScroll := maxInt(len(m.dashLines)-visibleH, 0)
-	m.scroll = clampInt(m.scroll, 0, maxScroll)
 }
 
 func (m *model) dashFooter() string {
-	help := helpBarStyle.Render("P/Enter 进程管理 · ↑/↓/滚轮 滚动 · q 退出")
+	help := helpBarStyle.Render("P/Enter 进程管理 · 鼠标滚轮滚动卡片 · q 退出")
 	status := ""
 	if m.haveSnap {
 		memPct := 0.0
