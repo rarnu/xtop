@@ -11,6 +11,14 @@ import (
 
 const histLen = 80 // sparkline history samples
 
+// temporary kill-switches for profiling. Set to true to disable the network
+// card and/or the process card (and background process collection). Useful for
+// isolating whether nettop / the process walk is responsible for UI lag.
+const (
+	disableNet  = false
+	disableProc = false
+)
+
 // confirmState tracks a pending KILL / FORCE KILL confirmation.
 type confirmState struct {
 	active bool
@@ -34,14 +42,16 @@ type model struct {
 	// per-card body scroll offsets
 	scrollBars cardScrollBars
 
+	// actual rendered card size (outer, incl. border), captured by
+	// renderDashboard and used by hitCard to map mouse coordinates.
+	cardW, cardH int
+
 	// dashboard state
 	dashLines []string
 	btnLine   int // full-content line index of the "open process manager" button
 	btnX0     int
 	btnX1     int
 	btnFound  bool
-
-	scheduled bool // true while waiting for the next 5s tick
 
 	// process modal state (feature 7)
 	modal      bool
@@ -56,15 +66,37 @@ type model struct {
 
 // New builds the root model. It implements tea.Model via a pointer receiver.
 func New() *model {
-	return &model{
+	m := &model{
 		col:     collector.New(),
 		sortCol: sortCPU,
 		sortAsc: false,
 	}
+	if !disableProc {
+		m.col.StartProcLoop()
+	}
+	if !disableNet {
+		m.col.StartNetProcLoop()
+	}
+	return m
 }
 
 func (m *model) Init() tea.Cmd {
-	return collectAllCmd(m.col)
+	// CPU/mem/disk/GPU are still collected on demand via tea commands. Process
+	// data is maintained by a dedicated collector goroutine writing to a cache;
+	// the UI simply listens for cache updates and re-renders.
+	cmds := []tea.Cmd{
+		collectCPU(m.col),
+		collectMem(m.col),
+		collectDisk(m.col),
+		collectGPU(m.col),
+	}
+	if !disableNet {
+		cmds = append(cmds, collectNet(m.col), netProcUpdateCmd(m.col))
+	}
+	if !disableProc {
+		cmds = append(cmds, procUpdateCmd(m.col))
+	}
+	return tea.Batch(cmds...)
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -82,16 +114,27 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.rebuildProcRows()
 		}
 		m.recompute()
-		// Schedule the next 5-second refresh once per collection round.
-		if !m.scheduled {
-			m.scheduled = true
-			return m, scheduleTick()
+		// Cache-backed subsystems re-subscribe to the next cache update.
+		// On-demand subsystems schedule their next collection.
+		switch msg.part {
+		case "proc":
+			return m, procUpdateCmd(m.col)
+		case "netprocs":
+			return m, netProcUpdateCmd(m.col)
+		case "net":
+			if disableNet {
+				return m, nil
+			}
+			return m, scheduleRecollect(msg.part)
+		default:
+			return m, scheduleRecollect(msg.part)
 		}
-		return m, nil
 
-	case tickMsg:
-		m.scheduled = false
-		return m, collectAllCmd(m.col)
+	case recollectMsg:
+		if msg.part == "net" && disableNet {
+			return m, nil
+		}
+		return m, collectPart(m.col, msg.part)
 
 	case tea.KeyMsg:
 		if m.modal {
@@ -137,12 +180,17 @@ const footerHeight = 1 // status/help bar at the very bottom
 func (m *model) updateDashKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c":
+		m.stopLoops()
 		return m, tea.Quit
 	case "p", "enter":
-		m.openModal()
-		return m, nil
+		return m, m.openModal()
 	}
 	return m, nil
+}
+
+func (m *model) stopLoops() {
+	m.col.StopProcLoop()
+	m.col.StopNetProcLoop()
 }
 
 func (m *model) updateDashMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
@@ -164,8 +212,7 @@ func (m *model) updateDashMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		if m.btnFound {
 			if msg.Y >= m.btnLine-1 && msg.Y <= m.btnLine+1 &&
 				msg.X >= m.btnX0-2 && msg.X <= m.btnX1+2 {
-				m.openModal()
-				return m, nil
+				return m, m.openModal()
 			}
 		}
 	}
@@ -299,7 +346,6 @@ func (m *model) dashFooter() string {
 	return joinLR(help, status, m.width)
 }
 
-
 func (m *model) mergeSnap(s collector.Snapshot) {
 	if len(s.CPU.PerCore) > 0 || s.CPU.Overall != 0 {
 		m.snap.CPU = s.CPU
@@ -310,8 +356,13 @@ func (m *model) mergeSnap(s collector.Snapshot) {
 	if len(s.Disk.Mounts) > 0 {
 		m.snap.Disk = s.Disk
 	}
-	if s.Net.TotalUpload > 0 || s.Net.TotalDownload > 0 {
-		m.snap.Net = s.Net
+	if s.Net.TotalUpload > 0 || s.Net.TotalDownload > 0 || len(s.Net.TopProcs) > 0 {
+		if s.Net.TotalUpload > 0 || s.Net.TotalDownload > 0 {
+			m.snap.Net = s.Net
+		} else {
+			m.snap.Net.TopProcs = s.Net.TopProcs
+			m.snap.Net.ProcsSupported = s.Net.ProcsSupported
+		}
 	}
 	if s.GPU.Available || len(s.GPU.Cards) > 0 {
 		m.snap.GPU = s.GPU
@@ -364,12 +415,13 @@ func gpuAvgLoad(g collector.GPUStat) float64 {
 
 // ---- modal helpers -----------------------------------------------------
 
-func (m *model) openModal() {
+func (m *model) openModal() tea.Cmd {
 	m.modal = true
 	m.procSel = 0
 	m.procScroll = 0
 	m.confirm.active = false
 	m.rebuildProcRows()
+	return nil
 }
 
 func (m *model) closeModal() {

@@ -10,8 +10,9 @@ import (
 )
 
 // diskCard renders one block per mount: a fill "tank", read/write rates and
-// capacity, matching DISK.png.
-func diskCard(d collector.DiskStat, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
+// capacity, matching DISK.png. Below the mounts it appends the top processes by
+// disk read+write rate (feature 3); the whole card scrolls when it overflows.
+func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bool, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
 	header := pillStyle.Render(fmtSizeF(float64(d.UsedBytes)) + " / " + fmtSizeF(float64(d.TotalBytes)))
 	cw := contentWidth(innerWidth)
 
@@ -44,6 +45,19 @@ func diskCard(d collector.DiskStat, innerWidth, innerHeight int, focused bool, s
 		tank := strings.Join(vTank(2, m.UsedPercent), "\n")
 		block := lipgloss.JoinHorizontal(lipgloss.Top, tank, "  ", strings.Join(textLines, "\n"))
 		lines = append(lines, strings.Split(block, "\n")...)
+	}
+
+	// Process list (top by disk read+write rate) appended below the mounts.
+	lines = append(lines, "")
+	if !diskSupported {
+		lines = append(lines, unsupportedLines()...)
+	} else {
+		lines = append(lines, miniHeaderLine(cw, "读写/s"))
+		rows := make([]miniRow, 0, len(procs))
+		for _, p := range procs {
+			rows = append(rows, miniRow{Value: fmtRate(p.DiskBytesPerSec), Command: p.Command})
+		}
+		lines = append(lines, miniRowLines(cw, rows)...)
 	}
 
 	return renderCard(innerWidth, innerHeight, "▦", "磁盘", header, lines, focused, scroll)

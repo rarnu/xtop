@@ -16,9 +16,66 @@ func renderCard(innerWidth, innerHeight int, icon, title, headerRight string, bo
 		innerHeight = 2
 	}
 
-	bodyH := innerHeight
-	visible, sbY0, sbY1, hasSB := cardBody(bodyLines, bodyH, innerWidth, scroll)
+	visible, sbY0, sbY1, hasSB := cardBody(bodyLines, innerHeight, innerWidth, scroll)
+	visible = applyScrollbar(visible, innerWidth, innerHeight, sbY0, sbY1, hasSB)
 
+	header := joinLR(iconStyle.Render(icon)+" "+titleStyle.Render(title), headerRight, innerWidth)
+
+	rows := make([]string, 0, len(visible)+2)
+	rows = append(rows, header)
+	rows = append(rows, divider(innerWidth))
+	rows = append(rows, visible...)
+
+	return styleCard(rows, innerWidth, innerHeight, focused)
+}
+
+// renderCardSplit draws a card whose body is split into a fixed region on top
+// (fixedLines, never scrolled) and a scrollable list region below. Only the list
+// region gets its own vertical scrollbar when it overflows; the fixed lines
+// always stay visible. Used by the memory and network cards (feature: keep the
+// summary pinned, scroll just the process list).
+//
+// The returned block is the same size as renderCard's: (innerWidth+4) x
+// (innerHeight+2) cells.
+func renderCardSplit(innerWidth, innerHeight int, icon, title, headerRight string, fixedLines, listLines []string, focused bool, listScroll *cardScroll) string {
+	if innerHeight < 2 {
+		innerHeight = 2
+	}
+
+	fixedH := len(fixedLines)
+	if fixedH > innerHeight {
+		fixedH = innerHeight
+	}
+	listH := innerHeight - fixedH // rows left for the scrollable list viewport
+
+	fixed := make([]string, fixedH)
+	for i := 0; i < fixedH; i++ {
+		fixed[i] = padRow(fixedLines[i], innerWidth)
+	}
+
+	var listView []string
+	if listH > 0 {
+		visible, sbY0, sbY1, hasSB := cardBody(listLines, listH, innerWidth, listScroll)
+		listView = applyScrollbar(visible, innerWidth, listH, sbY0, sbY1, hasSB)
+	} else {
+		listScroll.max = 0
+		listScroll.offset = 0
+	}
+
+	header := joinLR(iconStyle.Render(icon)+" "+titleStyle.Render(title), headerRight, innerWidth)
+
+	rows := make([]string, 0, innerHeight+2)
+	rows = append(rows, header)
+	rows = append(rows, divider(innerWidth))
+	rows = append(rows, fixed...)
+	rows = append(rows, listView...)
+
+	return styleCard(rows, innerWidth, innerHeight, focused)
+}
+
+// applyScrollbar overlays a right-hand scrollbar onto the visible viewport lines
+// (when hasSB) and pads every line to innerWidth. bodyH is the viewport height.
+func applyScrollbar(visible []string, innerWidth, bodyH, sbY0, sbY1 int, hasSB bool) []string {
 	if hasSB && innerWidth > scrollbarMargin {
 		bar := renderScrollbar(bodyH, sbY0, sbY1)
 		contentW := innerWidth - scrollbarMargin
@@ -27,16 +84,30 @@ func renderCard(innerWidth, innerHeight int, icon, title, headerRight string, bo
 			visible[i] = fitStyledLine(visible[i], contentW) + strings.Repeat(" ", padCols) + bar[i]
 		}
 	}
-
-	header := joinLR(iconStyle.Render(icon)+" "+titleStyle.Render(title), headerRight, innerWidth)
-
-	rows := make([]string, 0, len(visible)+2)
-	rows = append(rows, header)
-	rows = append(rows, divider(innerWidth))
-	for _, l := range visible {
-		rows = append(rows, padRow(l, innerWidth))
+	for i := range visible {
+		visible[i] = padRow(visible[i], innerWidth)
 	}
+	return visible
+}
 
+// disabledCard renders a placeholder for a deliberately disabled card.
+func disabledCard(innerWidth, innerHeight int, icon, title, reason string) string {
+	lines := []string{faintStyle.Render(reason), ""}
+	header := joinLR(iconStyle.Render(icon)+" "+titleStyle.Render(title), "", innerWidth)
+	rows := []string{header, divider(innerWidth)}
+	for i := 0; i < innerHeight; i++ {
+		if i < len(lines) {
+			rows = append(rows, padRow(lines[i], innerWidth))
+		} else {
+			rows = append(rows, strings.Repeat(" ", innerWidth))
+		}
+	}
+	return styleCard(rows, innerWidth, innerHeight, false)
+}
+
+// styleCard wraps assembled content rows in the (focused) card border/padding at
+// a fixed size.
+func styleCard(rows []string, innerWidth, innerHeight int, focused bool) string {
 	content := strings.Join(rows, "\n")
 	style := cardStyle
 	if focused {

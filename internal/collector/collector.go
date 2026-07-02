@@ -1,7 +1,13 @@
 package collector
 
 import (
+	"context"
+	"os/user"
+	"strconv"
+	"sync"
 	"time"
+
+	"github.com/shirou/gopsutil/v4/process"
 
 	"github.com/shirou/gopsutil/v4/cpu"
 )
@@ -10,11 +16,11 @@ import (
 // counters plus the timestamp of that subsystem's last sample, so it can derive
 // rates (disk IO, network throughput, per-process CPU) from deltas.
 //
-// The six subsystems keep disjoint state, so the TUI may collect them
-// concurrently (one goroutine per subsystem). CPU/mem/GPU are stateless; disk,
-// net and proc each touch only their own prev* fields, so no two goroutines
-// share mutable state. Do not, however, run two collections of the *same*
-// subsystem in parallel.
+// CPU/mem/GPU are stateless; disk and net are collected on demand. Process data
+// is special: it is refreshed continuously by a single dedicated goroutine that
+// writes into procCache. The TUI reads from the cache and re-renders when the
+// goroutine signals an update. This isolates the expensive process walk from the
+// event loop and the renderer.
 type Collector struct {
 	prevDiskIO   map[string]ioCounter // io-device name -> read/write bytes
 	prevDiskTime time.Time
@@ -22,8 +28,29 @@ type Collector struct {
 	prevNet     netCounter
 	prevNetTime time.Time
 
+	// Process walk state, only touched by the dedicated process loop goroutine.
 	prevProc     map[int32]float64 // pid -> cumulative cpu seconds (user+system)
+	prevProcDisk map[int32]uint64  // pid -> cumulative disk read+write bytes
 	prevProcTime time.Time
+	procCache    ProcStat
+	procMu       sync.RWMutex
+	procUpdate   chan struct{} // signaled (buffered 1) after each cache refresh
+	procCancel   context.CancelFunc
+
+	// Per-process network traffic cache (macOS nettop). A single long-running
+	// nettop process is started and its stdout is parsed continuously, avoiding
+	// the ~5 second startup cost of spawning a fresh nettop for each sample.
+	netProcCache      []NetProc
+	netProcSupported  bool
+	netProcMu         sync.RWMutex
+	netProcUpdate     chan struct{}
+	netProcCancel     context.CancelFunc
+
+	// userCache memoises uid -> username. user.LookupId (getpwuid) can be very
+	// slow on machines bound to a network directory (LDAP/AD); doing it per
+	// process for 1000+ procs would take seconds. Usernames are stable, so we
+	// cache across walks and only ever look up each distinct uid once.
+	userCache map[uint32]string
 }
 
 type ioCounter struct {
@@ -36,13 +63,105 @@ type netCounter struct {
 	recv uint64
 }
 
-// New returns a ready-to-use Collector.
+// procRefreshInterval is the pause between the end of one process-cache refresh
+// and the start of the next. The walk itself can take a variable amount of time,
+// so we sleep *after* it finishes rather than using a fixed ticker.
+const procRefreshInterval = 3 * time.Second
+
+// New returns a ready-to-use Collector. It does not start the background loops;
+// call StartProcLoop / StartNetProcLoop when the UI wants that data.
 func New() *Collector {
 	return &Collector{
-		prevDiskIO: map[string]ioCounter{},
-		prevProc:   map[int32]float64{},
+		prevDiskIO:    map[string]ioCounter{},
+		prevProc:      map[int32]float64{},
+		prevProcDisk:  map[int32]uint64{},
+		userCache:     map[uint32]string{},
+		procUpdate:    make(chan struct{}, 1),
+		netProcUpdate: make(chan struct{}, 1),
 	}
 }
+
+// StartProcLoop starts the dedicated goroutine that refreshes procCache every
+// collectInterval. Safe to call multiple times; subsequent calls are no-ops.
+func (c *Collector) StartProcLoop() {
+	if c.procCancel != nil {
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	c.procCancel = cancel
+	go c.procLoop(ctx)
+}
+
+// StopProcLoop stops the dedicated process cache goroutine.
+func (c *Collector) StopProcLoop() {
+	if c.procCancel != nil {
+		c.procCancel()
+		c.procCancel = nil
+	}
+}
+
+// StartNetProcLoop starts the dedicated goroutine that parses nettop's
+// continuous stdout. Safe to call multiple times.
+func (c *Collector) StartNetProcLoop() {
+	if c.netProcCancel != nil {
+		return
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	c.netProcCancel = cancel
+	go collectNetProcsLoop(ctx, c)
+}
+
+// StopNetProcLoop stops the nettop parsing goroutine.
+func (c *Collector) StopNetProcLoop() {
+	if c.netProcCancel != nil {
+		c.netProcCancel()
+		c.netProcCancel = nil
+	}
+}
+
+func (c *Collector) procLoop(ctx context.Context) {
+	runProcLoop(ctx, c)
+}
+
+func (c *Collector) refreshProcCache() {
+	ps := c.collectProc(dtSince(&c.prevProcTime))
+	c.procMu.Lock()
+	c.procCache = ps
+	c.procMu.Unlock()
+	select {
+	case c.procUpdate <- struct{}{}:
+	default:
+	}
+}
+
+// ProcCache returns the latest cached process snapshot. It is safe for
+// concurrent read with the background loop.
+func (c *Collector) ProcCache() ProcStat {
+	c.procMu.RLock()
+	defer c.procMu.RUnlock()
+	return c.procCache
+}
+
+// ProcUpdate returns a channel that is signaled whenever procCache is refreshed.
+func (c *Collector) ProcUpdate() <-chan struct{} { return c.procUpdate }
+
+// NetProcCache returns the latest cached per-process network snapshot.
+func (c *Collector) NetProcCache() []NetProc {
+	c.netProcMu.RLock()
+	defer c.netProcMu.RUnlock()
+	return c.netProcCache
+}
+
+// NetProcSupported reports whether the nettop loop has produced at least one
+// sample.
+func (c *Collector) NetProcSupported() bool {
+	c.netProcMu.RLock()
+	defer c.netProcMu.RUnlock()
+	return c.netProcSupported
+}
+
+// NetProcUpdate returns a channel that is signaled whenever netProcCache is refreshed.
+func (c *Collector) NetProcUpdate() <-chan struct{} { return c.netProcUpdate }
 
 // Snapshot captures every subsystem once. Rate-based fields are zero on the
 // very first call for each subsystem (no previous sample to diff against).
@@ -81,14 +200,59 @@ func (c *Collector) CollectMem() MemStat { return collectMem() }
 // CollectDisk returns per-mount usage and IO rates.
 func (c *Collector) CollectDisk() DiskStat { return c.collectDisk(dtSince(&c.prevDiskTime)) }
 
-// CollectNet returns aggregate network throughput.
-func (c *Collector) CollectNet() NetStat { return c.collectNet(dtSince(&c.prevNetTime)) }
+// CollectNet returns aggregate network throughput plus, where supported, the
+// top processes by per-process traffic. Aggregate counters are collected on
+// demand; per-process traffic is read from the nettop cache maintained by the
+// dedicated goroutine started with StartNetProcLoop.
+func (c *Collector) CollectNet() NetStat {
+	n := c.collectNet(dtSince(&c.prevNetTime))
+	n.TopProcs = c.NetProcCache()
+	n.ProcsSupported = c.NetProcSupported()
+	return n
+}
 
-// CollectGPU returns GPU stats.
-func (c *Collector) CollectGPU() GPUStat { return collectGPU() }
+// CollectGPU returns GPU stats plus, where supported, the top processes by GPU
+// memory usage.
+func (c *Collector) CollectGPU() GPUStat {
+	g := collectGPU()
+	if top, supported := collectGPUProcs(); supported {
+		g.TopProcs = top
+		g.ProcsSupported = true
+	}
+	return g
+}
 
-// CollectProc returns process list and top CPU consumers.
-func (c *Collector) CollectProc() ProcStat { return c.collectProc(dtSince(&c.prevProcTime)) }
+// CollectProc returns the latest cached process snapshot. If the cache loop has
+// not been started yet, it falls back to a synchronous walk so that Snapshot()
+// and standalone callers still work.
+func (c *Collector) CollectProc() ProcStat {
+	c.procMu.RLock()
+	cache := c.procCache
+	c.procMu.RUnlock()
+	if len(cache.All) > 0 {
+		return cache
+	}
+	return c.collectProc(dtSince(&c.prevProcTime))
+}
+
+// usernameOf returns the username for a process, using the Collector's uid cache
+// to avoid repeated slow getpwuid / directory-service lookups.
+func (c *Collector) usernameOf(p *process.Process) string {
+	uids, err := p.Uids()
+	if err != nil || len(uids) == 0 {
+		return ""
+	}
+	uid := uids[0]
+	if u, ok := c.userCache[uid]; ok {
+		return u
+	}
+	name := ""
+	if u, err := user.LookupId(strconv.Itoa(int(uid))); err == nil {
+		name = u.Username
+	}
+	c.userCache[uid] = name
+	return name
+}
 
 // collectCPU returns overall and per-core utilisation. gopsutil keeps separate
 // internal state for percpu vs total, so we derive overall from the per-core

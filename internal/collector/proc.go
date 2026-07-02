@@ -1,85 +1,35 @@
 package collector
 
 import (
-	"sort"
 	"strings"
-	"time"
 
 	"github.com/shirou/gopsutil/v4/process"
 )
 
 const topProcCount = 20
 
-// collectProc walks every process, deriving per-process CPU% from the delta of
-// cumulative CPU time since the previous tick (cheap: one Times() call each,
-// no second sampling pass). CPU% is 0 on the first tick.
-func (c *Collector) collectProc(dt float64) ProcStat {
-	procs, err := process.Processes()
-	if err != nil {
-		return ProcStat{}
+// topN returns a copy of the first n entries of an already-sorted slice.
+func topN(sorted []ProcInfo, n int) []ProcInfo {
+	if len(sorted) < n {
+		n = len(sorted)
 	}
-
-	next := make(map[int32]float64, len(procs))
-	list := make([]ProcInfo, 0, len(procs))
-
-	for _, p := range procs {
-		// Skip processes whose command can't be read: they vanished mid-scan
-		// and would otherwise show up as a useless "?" row.
-		cmd := commandOf(p)
-		if cmd == "?" {
-			continue
-		}
-		pid := p.Pid
-
-		var cpuSecs float64
-		if t, err := p.Times(); err == nil && t != nil {
-			cpuSecs = t.User + t.System
-		}
-		next[pid] = cpuSecs
-
-		var cpuPct float64
-		if dt > 0 {
-			if prev, ok := c.prevProc[pid]; ok && cpuSecs >= prev {
-				cpuPct = (cpuSecs - prev) / dt * 100
-			}
-		}
-
-		info := ProcInfo{PID: pid, CPU: cpuPct, Command: cmd}
-
-		if u, err := p.Username(); err == nil {
-			info.User = u
-		}
-		info.Status = shortStatus(p)
-		if mi, err := p.MemoryInfo(); err == nil && mi != nil {
-			info.MemRSS = mi.RSS
-		}
-		if ct, err := p.CreateTime(); err == nil && ct > 0 {
-			info.Start = time.UnixMilli(ct)
-		}
-
-		list = append(list, info)
-	}
-
-	c.prevProc = next
-
-	sort.Slice(list, func(i, j int) bool { return list[i].CPU > list[j].CPU })
-
-	top := list
-	if len(top) > topProcCount {
-		top = append([]ProcInfo(nil), list[:topProcCount]...)
-	}
-
-	return ProcStat{All: list, Top: top}
+	return append([]ProcInfo(nil), sorted[:n]...)
 }
 
-// shortStatus reduces gopsutil's status words to a single display letter.
+// shortStatus reduces one process's status to a single display letter.
 func shortStatus(p *process.Process) string {
 	ss, err := p.Status()
 	if err != nil || len(ss) == 0 {
 		return "?"
 	}
-	s := ss[0]
-	if len(s) == 0 {
+	return shortStatusCode(ss[0])
+}
+
+// shortStatusCode maps a raw status string to a single display letter. It
+// accepts both gopsutil's letters/words and BSD `ps` codes (e.g. "Ss", "R+"),
+// for which the leading character is the state.
+func shortStatusCode(s string) string {
+	if s == "" {
 		return "?"
 	}
 	if len(s) == 1 {

@@ -9,8 +9,9 @@ import (
 // CPU% and RSS values (regression guard for diff/refresh logic).
 func TestTwoTicks(t *testing.T) {
 	c := New()
+	c.StartProcLoop()
 	_ = c.Snapshot()
-	time.Sleep(1100 * time.Millisecond)
+	time.Sleep(2 * time.Second)
 	s := c.Snapshot()
 
 	if len(s.CPU.PerCore) == 0 {

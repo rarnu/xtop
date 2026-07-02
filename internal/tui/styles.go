@@ -11,7 +11,15 @@ const (
 	colFaint    = lipgloss.Color("#6C8A76") // labels / secondary text
 	colGray     = lipgloss.Color("#4A4A4A") // empty track
 	colGrayLite = lipgloss.Color("#8A8A8A") // cache legend
-	colTrack    = lipgloss.Color("#262A27") // very dark fill track
+	// colTrack is the dim "empty" fill behind meters, sparklines and the
+	// scrollbar. It must be a *visibly* dark gray, not near-black: a near-black
+	// glyph on a dark terminal background disappears, leaving only each thin
+	// │/─ character's anti-alias halo, which reads as faint white lines on some
+	// displays (DPI / font-smoothing dependent). Using an ANSI-256 gray (238)
+	// keeps the glyph body visible as gray and avoids that artifact; it also
+	// degrades to a safe ANSI "bright black" (90) rather than a truecolor escape
+	// on limited terminals.
+	colTrack = lipgloss.Color("238") // very dark fill track
 	colRed      = lipgloss.Color("#FF5555")
 	colYellow   = lipgloss.Color("#E6DB74")
 	colOrange   = lipgloss.Color("#E0A54B")

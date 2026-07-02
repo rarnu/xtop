@@ -2,16 +2,15 @@ package tui
 
 import "xtop/internal/collector"
 
-// memCard renders a used/cached/free segmented bar with a legend, mirroring the
-// donut composition in MEM.png.
-func memCard(m collector.MemStat, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
+// memCard renders a used/cached/free segmented bar with a legend (fixed), plus a
+// scrollable list of the top processes by resident memory below it. The summary
+// stays pinned; only the process list scrolls (feature 1).
+func memCard(m collector.MemStat, procs []collector.ProcInfo, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
 	header := pillStyle.Render(fmtSize(m.Total))
 	cw := contentWidth(innerWidth)
 
-	var lines []string
 	if m.Total == 0 {
-		lines = []string{faintStyle.Render("无内存数据")}
-		return renderCard(innerWidth, innerHeight, "▤", "内存", header, lines, focused, scroll)
+		return renderCard(innerWidth, innerHeight, "▤", "内存", header, []string{faintStyle.Render("无内存数据")}, focused, scroll)
 	}
 
 	total := float64(m.Total)
@@ -33,6 +32,12 @@ func memCard(m collector.MemStat, innerWidth, innerHeight int, focused bool, scr
 			valueStyle.Render(fmtSize(m.Free)),
 		cw)
 
-	lines = []string{bar, "", legend, values}
-	return renderCard(innerWidth, innerHeight, "▤", "内存", header, lines, focused, scroll)
+	rows := make([]miniRow, 0, len(procs))
+	for _, p := range procs {
+		rows = append(rows, miniRow{Value: fmtSize(p.MemRSS), Command: p.Command})
+	}
+
+	fixed := []string{bar, "", legend, values, miniHeaderLine(cw, "内存")}
+	list := miniRowLines(cw, rows)
+	return renderCardSplit(innerWidth, innerHeight, "▤", "内存", header, fixed, list, focused, scroll)
 }

@@ -2,8 +2,9 @@ package tui
 
 import "xtop/internal/collector"
 
-// netCard renders upload/download speed and cumulative traffic with a download
-// sparkline, matching NETWORK.png.
+// netCard renders upload/download speed and cumulative traffic (fixed), plus a
+// scrollable list of the top processes by network throughput below it. The
+// summary stays pinned; only the process list scrolls (feature 2).
 func netCard(n collector.NetStat, downHist []float64, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
 	cw := contentWidth(innerWidth)
 	sparkW := clampInt(cw/2, 8, maxInt(cw-8, 8))
@@ -26,6 +27,17 @@ func netCard(n collector.NetStat, downHist []float64, innerWidth, innerHeight in
 		valueStyle.Render(fitCell(fmtRate(n.DownloadPerSec), speedW, false)) +
 		valueStyle.Render(fitCell(fmtSizeF(float64(n.TotalDownload)), totalW, false))
 
-	lines := []string{head, "", up, down}
-	return renderCard(innerWidth, innerHeight, "◍", "网络", header, lines, focused, scroll)
+	var fixed, list []string
+	if !n.ProcsSupported {
+		fixed = []string{head, "", up, down}
+		list = unsupportedLines()
+	} else {
+		rows := make([]miniRow, 0, len(n.TopProcs))
+		for _, p := range n.TopProcs {
+			rows = append(rows, miniRow{Value: fmtRate(p.BytesPerSec), Command: p.Command})
+		}
+		fixed = []string{head, "", up, down, miniHeaderLine(cw, "流量")}
+		list = miniRowLines(cw, rows)
+	}
+	return renderCardSplit(innerWidth, innerHeight, "◍", "网络", header, fixed, list, focused, scroll)
 }

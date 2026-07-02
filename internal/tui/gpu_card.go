@@ -39,6 +39,20 @@ func gpuCard(g collector.GPUStat, hist []float64, innerWidth, innerHeight int, f
 		lines = append(lines, gaugeRow("温度", c.TempC, gpuTemp(c.TempC), cw))
 		lines = append(lines, gaugeRow("负载", c.LoadPct, gpuLoad(c.LoadPct), cw))
 	}
+
+	// Process list (top by GPU memory) appended below the card stats.
+	lines = append(lines, "")
+	if !g.ProcsSupported {
+		lines = append(lines, unsupportedLines()...)
+	} else {
+		lines = append(lines, miniHeaderLine(cw, "显存"))
+		rows := make([]miniRow, 0, len(g.TopProcs))
+		for _, p := range g.TopProcs {
+			rows = append(rows, miniRow{Value: fmtSize(p.MemBytes), Command: p.Command})
+		}
+		lines = append(lines, miniRowLines(cw, rows)...)
+	}
+
 	return renderCard(innerWidth, innerHeight, "◉", "GPU", header, lines, focused, scroll)
 }
 

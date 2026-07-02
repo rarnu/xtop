@@ -49,18 +49,41 @@ func (m *model) renderDashboard() []string {
 	}
 	w, h := m.dashboardGeometry()
 
+	var netCardStr, procCardStr string
+	if disableNet {
+		netCardStr = disabledCard(w, h, "◍", "网络", "已停用")
+	} else {
+		netCardStr = netCard(m.snap.Net, m.downHist, w, h, false, &m.scrollBars[cardNet])
+	}
+	if disableProc {
+		procCardStr = disabledCard(w, h, "☰", "进程", "已停用")
+	} else {
+		procCardStr = procCard(m.snap.Proc, w, h, false, &m.scrollBars[cardProc])
+	}
+
 	cards := []string{
 		cpuCard(m.snap.CPU, m.cpuHist, w, h, false, &m.scrollBars[cardCPU]),
-		diskCard(m.snap.Disk, w, h, false, &m.scrollBars[cardDisk]),
+		diskCard(m.snap.Disk, m.snap.Proc.TopDisk, m.snap.Proc.DiskSupported, w, h, false, &m.scrollBars[cardDisk]),
 		gpuCard(m.snap.GPU, m.gpuHist, w, h, false, &m.scrollBars[cardGPU]),
-		memCard(m.snap.Mem, w, h, false, &m.scrollBars[cardMem]),
-		netCard(m.snap.Net, m.downHist, w, h, false, &m.scrollBars[cardNet]),
-		procCard(m.snap.Proc, w, h, false, &m.scrollBars[cardProc]),
+		memCard(m.snap.Mem, m.snap.Proc.TopMem, w, h, false, &m.scrollBars[cardMem]),
+		netCardStr,
+		procCardStr,
 	}
 
 	gap := strings.Repeat(" ", gapH)
 	row1 := lipgloss.JoinHorizontal(lipgloss.Top, cards[0], gap, cards[1], gap, cards[2])
 	row2 := lipgloss.JoinHorizontal(lipgloss.Top, cards[3], gap, cards[4], gap, cards[5])
+
+	// Record the *actual* rendered card size so hitCard can map mouse
+	// coordinates to the right card. Deriving this from a re-guessed geometry
+	// drifts from what lipgloss actually produces (border/padding), which made
+	// wheel events land on the wrong card.
+	cardLines := strings.Split(cards[0], "\n")
+	m.cardH = len(cardLines)
+	if len(cardLines) > 0 {
+		m.cardW = lipgloss.Width(cardLines[0])
+	}
+
 	// Row height from geometry already accounts for the footer and offset, so
 	// no extra gap line is needed. Join rows directly; the resulting height
 	// equals m.height - footerHeight - offsetRows and leaves that space free.

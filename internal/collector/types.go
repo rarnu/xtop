@@ -54,6 +54,16 @@ type NetStat struct {
 	DownloadPerSec float64 // bytes/sec since previous snapshot
 	TotalUpload    uint64  // cumulative bytes sent since boot
 	TotalDownload  uint64  // cumulative bytes received since boot
+
+	TopProcs      []NetProc // top processes by network throughput
+	ProcsSupported bool     // false when per-process traffic isn't obtainable here
+}
+
+// NetProc describes one process's network throughput.
+type NetProc struct {
+	PID         int32
+	Command     string
+	BytesPerSec float64 // upload+download bytes/sec since previous snapshot
 }
 
 // GPUStat holds the list of detected GPUs plus availability info.
@@ -61,6 +71,16 @@ type GPUStat struct {
 	Available bool     // false when no GPU data source is usable
 	Message   string   // reason shown when Available is false
 	Cards     []GPUCard
+
+	TopProcs       []GPUProc // top processes by GPU memory
+	ProcsSupported bool      // false when per-process VRAM isn't obtainable here
+}
+
+// GPUProc describes one process's GPU memory usage.
+type GPUProc struct {
+	PID      int32
+	Command  string
+	MemBytes uint64
 }
 
 // GPUCard describes a single GPU. Fields set to the "N/A" sentinels below are
@@ -74,19 +94,24 @@ type GPUCard struct {
 	LoadPct  float64 // 0-100; <0 means N/A
 }
 
-// ProcStat holds the full process list plus the top-N convenience slice.
+// ProcStat holds the full process list plus the top-N convenience slices.
 type ProcStat struct {
-	All []ProcInfo // all processes, sorted by CPU desc by default
-	Top []ProcInfo // top processes by CPU (feature 6)
+	All     []ProcInfo // all processes, sorted by CPU desc by default
+	Top     []ProcInfo // top processes by CPU (feature 6)
+	TopMem  []ProcInfo // top processes by resident memory
+	TopDisk []ProcInfo // top processes by disk read+write rate (Linux only)
+
+	DiskSupported bool // false when per-process disk I/O isn't obtainable here
 }
 
 // ProcInfo describes a single process.
 type ProcInfo struct {
-	PID     int32
-	User    string
-	Status  string // short code: R, S, D, Z, T, I ...
-	CPU     float64
-	MemRSS  uint64
-	Start   time.Time
-	Command string
+	PID             int32
+	User            string
+	Status          string // short code: R, S, D, Z, T, I ...
+	CPU             float64
+	MemRSS          uint64
+	DiskBytesPerSec float64 // read+write bytes/sec since previous snapshot (Linux)
+	Start           time.Time
+	Command         string
 }

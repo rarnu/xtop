@@ -18,7 +18,7 @@ var (
 // Only utilisation (and, when present, in-use memory) is available this way;
 // power/temperature are reported as N/A.
 func collectGPU() GPUStat {
-	out, err := exec.Command("ioreg", "-r", "-d", "1", "-w", "0", "-c", "AGXAccelerator").Output()
+	out, err := detach(exec.Command("ioreg", "-r", "-d", "1", "-w", "0", "-c", "AGXAccelerator")).Output()
 	if err != nil {
 		return GPUStat{Available: false, Message: "无 GPU 数据 (ioreg 不可用)"}
 	}
@@ -48,7 +48,7 @@ func collectGPU() GPUStat {
 
 // gpuName derives a friendly name from the chip brand (e.g. "Apple M5 Max").
 func gpuName() string {
-	out, err := exec.Command("sysctl", "-n", "machdep.cpu.brand_string").Output()
+	out, err := detach(exec.Command("sysctl", "-n", "machdep.cpu.brand_string")).Output()
 	if err != nil {
 		return "Apple GPU"
 	}
