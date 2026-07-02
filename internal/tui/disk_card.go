@@ -36,10 +36,16 @@ func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bo
 		lines = append(lines, head)
 
 		textLines := []string{
-			twoCol(labelStyle.Render("读/s"), labelStyle.Render("写/s"), half, tw),
-			twoCol(valueStyle.Render(fmtBytesF(m.ReadPerSec)), valueStyle.Render(fmtBytesF(m.WritePerSec)), half, tw),
-			twoCol(labelStyle.Render("已用"), labelStyle.Render("可用"), half, tw),
-			twoCol(valueStyle.Render(fmt.Sprintf("%.0f%%", m.UsedPercent)), valueStyle.Render(fmtSize(m.Free)), half, tw),
+			twoCol(
+				labelStyle.Render("读/s")+"\n"+valueStyle.Render(fmtBytesF(m.ReadPerSec)),
+				labelStyle.Render("已用")+"\n"+valueStyle.Render(fmt.Sprintf("%.0f%%", m.UsedPercent)),
+				half, tw,
+			),
+			twoCol(
+				labelStyle.Render("写/s")+"\n"+valueStyle.Render(fmtBytesF(m.WritePerSec)),
+				labelStyle.Render("可用")+"\n"+valueStyle.Render(fmtSize(m.Free)),
+				half, tw,
+			),
 		}
 
 		tank := strings.Join(vTank(2, m.UsedPercent), "\n")
@@ -50,23 +56,44 @@ func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bo
 	// Process list (top by disk read+write rate) appended below the mounts.
 	lines = append(lines, "")
 	if !diskSupported {
-		lines = append(lines, miniHeaderLine(cw, "读写/s", nil))
+		lines = append(lines, miniTwoColHeaderLine(cw, nil, "读/s", "写/s"))
 		lines = append(lines, faintStyle.Render("无进程数据"))
 	} else {
 		rows := make([]miniRow, 0, len(procs))
 		for _, p := range procs {
-			rows = append(rows, miniRow{Value: fmtRate(p.DiskBytesPerSec), Command: p.Command})
+			rows = append(rows, miniRow{
+				UpValue:   fmtRate(p.DiskReadPerSec),
+				DownValue: fmtRate(p.DiskWritePerSec),
+				Command:   p.Command,
+				TwoCol:    true,
+			})
 		}
-		lines = append(lines, miniHeaderLine(cw, "读写/s", rows))
+		lines = append(lines, miniTwoColHeaderLine(cw, rows, "读/s", "写/s"))
 		lines = append(lines, miniRowLines(cw, rows)...)
 	}
 
 	return renderCard(innerWidth, innerHeight, "▦", "磁盘", header, lines, focused, scroll)
 }
 
-// twoCol lays two styled values into columns of width `left` and `total-left`.
+// twoCol lays two styled blocks side by side. Each block may contain multiple
+// lines; the left block is padded to `left` cells and the pair is padded to
+// `total` cells.
 func twoCol(a, b string, left, total int) string {
-	return padRow(a, left) + b
+	la := strings.Split(a, "\n")
+	lb := strings.Split(b, "\n")
+	maxLines := maxInt(len(la), len(lb))
+	for len(la) < maxLines {
+		la = append(la, "")
+	}
+	for len(lb) < maxLines {
+		lb = append(lb, "")
+	}
+	var out []string
+	for i := 0; i < maxLines; i++ {
+		out = append(out, padRow(la[i], left)+lb[i])
+	}
+	block := strings.Join(out, "\n")
+	return padRow(block, total)
 }
 
 func fstypeLabel(fs string) string {

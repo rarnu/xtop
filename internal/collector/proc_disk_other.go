@@ -13,3 +13,7 @@ const procDiskSupported = false
 func procDiskBytes(_ *process.Process) (uint64, bool) {
 	return 0, false
 }
+
+func procDiskReadBytes(_ *process.Process) (uint64, bool) { return 0, false }
+
+func procDiskWriteBytes(_ *process.Process) (uint64, bool) { return 0, false }

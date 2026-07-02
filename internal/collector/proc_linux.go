@@ -35,6 +35,8 @@ func (c *Collector) collectProc(dt float64) ProcStat {
 
 	next := make(map[int32]float64, len(procs))
 	nextDisk := make(map[int32]uint64, len(procs))
+	nextRead := make(map[int32]uint64, len(procs))
+	nextWrite := make(map[int32]uint64, len(procs))
 	list := make([]ProcInfo, 0, len(procs))
 
 	// Statuses in one batch: on macOS a per-process p.Status() forks `ps` each
@@ -86,6 +88,22 @@ func (c *Collector) collectProc(dt float64) ProcStat {
 					}
 				}
 			}
+			if curR, ok := procDiskReadBytes(p); ok {
+				if dt > 0 {
+					if prevR, ok := c.prevProcRead[pid]; ok && curR >= prevR {
+						info.DiskReadPerSec = float64(curR-prevR) / dt
+					}
+				}
+				nextRead[pid] = curR
+			}
+			if curW, ok := procDiskWriteBytes(p); ok {
+				if dt > 0 {
+					if prevW, ok := c.prevProcWrite[pid]; ok && curW >= prevW {
+						info.DiskWritePerSec = float64(curW-prevW) / dt
+					}
+				}
+				nextWrite[pid] = curW
+			}
 		}
 
 		list = append(list, info)
@@ -93,6 +111,8 @@ func (c *Collector) collectProc(dt float64) ProcStat {
 
 	c.prevProc = next
 	c.prevProcDisk = nextDisk
+	c.prevProcRead = nextRead
+	c.prevProcWrite = nextWrite
 
 	sort.Slice(list, func(i, j int) bool { return list[i].CPU > list[j].CPU })
 	top := topN(list, topProcCount)
@@ -104,7 +124,10 @@ func (c *Collector) collectProc(dt float64) ProcStat {
 	var topDisk []ProcInfo
 	if procDiskSupported {
 		diskSorted := append([]ProcInfo(nil), list...)
-		sort.Slice(diskSorted, func(i, j int) bool { return diskSorted[i].DiskBytesPerSec > diskSorted[j].DiskBytesPerSec })
+		sort.Slice(diskSorted, func(i, j int) bool {
+			return diskSorted[i].DiskReadPerSec+diskSorted[i].DiskWritePerSec >
+				diskSorted[j].DiskReadPerSec+diskSorted[j].DiskWritePerSec
+		})
 		topDisk = topN(diskSorted, topProcCount)
 	}
 

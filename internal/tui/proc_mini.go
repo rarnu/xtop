@@ -83,11 +83,11 @@ func miniRowLines(cw int, rows []miniRow) []string {
 	return out
 }
 
-// miniTwoColHeaderLine renders a header like "上传  下载  进程" for the network
-// card's split value column, matching the row widths computed by miniRowLines.
-func miniTwoColHeaderLine(cw int, rows []miniRow) string {
+// miniTwoColHeaderLine renders a two-column header like "上传  下载  进程"
+// (or "读/s  写/s  进程") matching the row widths computed by miniRowLines.
+func miniTwoColHeaderLine(cw int, rows []miniRow, leftHead, rightHead string) string {
 	if len(rows) == 0 {
-		return labelStyle.Render("上传") + " " + labelStyle.Render("下载") + " " + labelStyle.Render("进程")
+		return labelStyle.Render(leftHead) + " " + labelStyle.Render(rightHead) + " " + labelStyle.Render("进程")
 	}
 	minValW := 6
 	maxValW := maxInt(cw/3, minValW)
@@ -99,8 +99,8 @@ func miniTwoColHeaderLine(cw int, rows []miniRow) string {
 	upW = minInt(upW, maxValW)
 	downW = minInt(downW, maxValW)
 	cmdW := maxInt(cw-upW-downW-2, 1)
-	return labelStyle.Render(fitCell("上传", upW, false)) + " " +
-		labelStyle.Render(fitCell("下载", downW, false)) + " " +
+	return labelStyle.Render(fitCell(leftHead, upW, false)) + " " +
+		labelStyle.Render(fitCell(rightHead, downW, false)) + " " +
 		labelStyle.Render(fitCell("进程", cmdW, false))
 }
 

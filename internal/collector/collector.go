@@ -29,13 +29,15 @@ type Collector struct {
 	prevNetTime time.Time
 
 	// Process walk state, only touched by the dedicated process loop goroutine.
-	prevProc     map[int32]float64 // pid -> cumulative cpu seconds (user+system)
-	prevProcDisk map[int32]uint64  // pid -> cumulative disk read+write bytes
-	prevProcTime time.Time
-	procCache    ProcStat
-	procMu       sync.RWMutex
-	procUpdate   chan struct{} // signaled (buffered 1) after each cache refresh
-	procCancel   context.CancelFunc
+	prevProc      map[int32]float64 // pid -> cumulative cpu seconds (user+system)
+	prevProcDisk  map[int32]uint64  // pid -> cumulative disk read+write bytes
+	prevProcRead  map[int32]uint64  // pid -> cumulative disk read bytes
+	prevProcWrite map[int32]uint64  // pid -> cumulative disk write bytes
+	prevProcTime  time.Time
+	procCache     ProcStat
+	procMu        sync.RWMutex
+	procUpdate    chan struct{} // signaled (buffered 1) after each cache refresh
+	procCancel    context.CancelFunc
 
 	// Per-process network traffic cache (macOS nettop). A single long-running
 	// nettop process is started and its stdout is parsed continuously, avoiding
@@ -75,6 +77,8 @@ func New() *Collector {
 		prevDiskIO:    map[string]ioCounter{},
 		prevProc:      map[int32]float64{},
 		prevProcDisk:  map[int32]uint64{},
+		prevProcRead:  map[int32]uint64{},
+		prevProcWrite: map[int32]uint64{},
 		userCache:     map[uint32]string{},
 		procUpdate:    make(chan struct{}, 1),
 		netProcUpdate: make(chan struct{}, 1),

@@ -16,3 +16,21 @@ func procDiskBytes(p *process.Process) (uint64, bool) {
 	}
 	return io.ReadBytes + io.WriteBytes, true
 }
+
+// procDiskReadBytes returns the process's cumulative read bytes.
+func procDiskReadBytes(p *process.Process) (uint64, bool) {
+	io, err := p.IOCounters()
+	if err != nil || io == nil {
+		return 0, false
+	}
+	return io.ReadBytes, true
+}
+
+// procDiskWriteBytes returns the process's cumulative write bytes.
+func procDiskWriteBytes(p *process.Process) (uint64, bool) {
+	io, err := p.IOCounters()
+	if err != nil || io == nil {
+		return 0, false
+	}
+	return io.WriteBytes, true
+}

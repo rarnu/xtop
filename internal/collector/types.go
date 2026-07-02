@@ -114,6 +114,8 @@ type ProcInfo struct {
 	CPU             float64
 	MemRSS          uint64
 	DiskBytesPerSec float64 // read+write bytes/sec since previous snapshot (Linux)
+	DiskReadPerSec  float64 // bytes/sec since previous snapshot (Linux)
+	DiskWritePerSec float64 // bytes/sec since previous snapshot (Linux)
 	Start           time.Time
 	Command         string
 }
