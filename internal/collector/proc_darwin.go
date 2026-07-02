@@ -207,10 +207,23 @@ func publishProcs(c *Collector, list []ProcInfo) {
 	sort.Slice(memSorted, func(i, j int) bool { return memSorted[i].MemRSS > memSorted[j].MemRSS })
 	topMem := topN(memSorted, topProcCount)
 
+	applyDarwinDiskIO(c, list)
+
+	var topDisk []ProcInfo
+	if procDiskSupported {
+		diskSorted := append([]ProcInfo(nil), list...)
+		sort.Slice(diskSorted, func(i, j int) bool {
+			return diskSorted[i].DiskReadPerSec+diskSorted[i].DiskWritePerSec >
+				diskSorted[j].DiskReadPerSec+diskSorted[j].DiskWritePerSec
+		})
+		topDisk = topN(diskSorted, topProcCount)
+	}
+
 	ps := ProcStat{
 		All:           append([]ProcInfo(nil), list...),
 		Top:           topCPU,
 		TopMem:        topMem,
+		TopDisk:       topDisk,
 		DiskSupported: procDiskSupported,
 	}
 
@@ -222,6 +235,42 @@ func publishProcs(c *Collector, list []ProcInfo) {
 	case c.procUpdate <- struct{}{}:
 	default:
 	}
+}
+
+// applyDarwinDiskIO fills in per-process disk read/write rates using
+// proc_pid_rusage. Because the darwin process list comes from a streaming `top`
+// command, this is done as a second pass over the PIDs rather than during the
+// initial parse. It only succeeds for processes owned by the current user;
+// system/root processes are silently skipped.
+func applyDarwinDiskIO(c *Collector, list []ProcInfo) {
+	if !procDiskSupported {
+		return
+	}
+	dt := dtSince(&c.prevDarwinDiskTime)
+	nextRead := make(map[int32]uint64, len(list))
+	nextWrite := make(map[int32]uint64, len(list))
+
+	for i := range list {
+		pid := list[i].PID
+		r, w, ok := procDiskUsage(pid)
+		if !ok {
+			continue
+		}
+		nextRead[pid] = r
+		nextWrite[pid] = w
+		if dt > 0 {
+			if pr, ok := c.prevProcRead[pid]; ok && r >= pr {
+				list[i].DiskReadPerSec = float64(r-pr) / dt
+			}
+			if pw, ok := c.prevProcWrite[pid]; ok && w >= pw {
+				list[i].DiskWritePerSec = float64(w-pw) / dt
+			}
+			list[i].DiskBytesPerSec = list[i].DiskReadPerSec + list[i].DiskWritePerSec
+		}
+	}
+
+	c.prevProcRead = nextRead
+	c.prevProcWrite = nextWrite
 }
 
 // collectProc on Darwin simply returns the top-derived cache. The expensive

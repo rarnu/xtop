@@ -61,6 +61,9 @@ func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bo
 	} else {
 		rows := make([]miniRow, 0, len(procs))
 		for _, p := range procs {
+			if p.DiskReadPerSec == 0 && p.DiskWritePerSec == 0 {
+				continue
+			}
 			rows = append(rows, miniRow{
 				UpValue:   fmtRate(p.DiskReadPerSec),
 				DownValue: fmtRate(p.DiskWritePerSec),

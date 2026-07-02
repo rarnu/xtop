@@ -34,6 +34,7 @@ type Collector struct {
 	prevProcRead  map[int32]uint64  // pid -> cumulative disk read bytes
 	prevProcWrite map[int32]uint64  // pid -> cumulative disk write bytes
 	prevProcTime  time.Time
+	prevDarwinDiskTime time.Time // only used on Darwin for top-derived disk rates
 	procCache     ProcStat
 	procMu        sync.RWMutex
 	procUpdate    chan struct{} // signaled (buffered 1) after each cache refresh
