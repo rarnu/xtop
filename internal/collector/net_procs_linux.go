@@ -35,7 +35,7 @@ func collectNetProcsLoop(ctx context.Context, c *Collector) {
 		}
 
 		// Fast first frame: 1s refresh.
-		gotData := runOneNethogs(ctx, c, 1)
+		gotData := runOneNethogs(ctx, c, 1, false)
 		if !gotData {
 			// nethogs failed or produced no data; wait before retrying.
 			select {
@@ -46,8 +46,9 @@ func collectNetProcsLoop(ctx context.Context, c *Collector) {
 			continue
 		}
 
-		// Steady state: 3s refresh.
-		runOneNethogs(ctx, c, 3)
+		// Steady state: 3s refresh. Restart after 30 samples (90s) to keep
+		// nethogs from accumulating stale connection entries.
+		runOneNethogs(ctx, c, 3, true)
 
 		select {
 		case <-ctx.Done():
@@ -58,9 +59,10 @@ func collectNetProcsLoop(ctx context.Context, c *Collector) {
 }
 
 // runOneNethogs starts nethogs with the given refresh interval, parses its
-// output until the process exits or the context is cancelled, and returns true
-// if at least one sample was published.
-func runOneNethogs(ctx context.Context, c *Collector, intervalSec int) bool {
+// output until the process exits, the context is cancelled, or maxSamples
+// samples have been published. It returns true if at least one sample was
+// published.
+func runOneNethogs(ctx context.Context, c *Collector, intervalSec int, limitSamples bool) bool {
 	binary, ok := findNethogs()
 	if !ok {
 		return false
@@ -96,7 +98,8 @@ func runOneNethogs(ctx context.Context, c *Collector, intervalSec int) bool {
 		_, _ = io.Copy(io.Discard, stderr)
 	}()
 
-	published := parseNethogsStream(ctx, stdout, c)
+	const maxSamples = 30
+	published := parseNethogsStream(ctx, stdout, c, limitSamples, maxSamples)
 	_ = cmd.Wait()
 	return published
 }
@@ -136,14 +139,16 @@ func findNethogs() (string, bool) {
 	return "", false
 }
 
-// parseNethogsStream parses nethogs -t output until the reader closes or ctx is
-// cancelled. It returns true if at least one sample was published.
-func parseNethogsStream(ctx context.Context, r io.Reader, c *Collector) bool {
+// parseNethogsStream parses nethogs -t output until the reader closes, ctx is
+// cancelled, or maxSamples samples have been published. It returns true if at
+// least one sample was published.
+func parseNethogsStream(ctx context.Context, r io.Reader, c *Collector, limitSamples bool, maxSamples int) bool {
 	scanner := bufio.NewScanner(r)
 	// nethogs lines are short; default buffer is fine.
 
 	var sample []NetProc
 	published := false
+	sampleCount := 0
 
 	flush := func() {
 		if len(sample) == 0 {
@@ -151,6 +156,7 @@ func parseNethogsStream(ctx context.Context, r io.Reader, c *Collector) bool {
 		}
 		publishNetProcs(c, sample)
 		published = true
+		sampleCount++
 		sample = sample[:0]
 	}
 
@@ -159,6 +165,10 @@ func parseNethogsStream(ctx context.Context, r io.Reader, c *Collector) bool {
 		case <-ctx.Done():
 			return published
 		default:
+		}
+
+		if limitSamples && sampleCount >= maxSamples {
+			return published
 		}
 
 		line := scanner.Text()
@@ -170,7 +180,9 @@ func parseNethogsStream(ctx context.Context, r io.Reader, c *Collector) bool {
 			continue
 		}
 		if np, ok := parseNethogsLine(line); ok {
-			sample = append(sample, np)
+			if shouldKeepNethogsProc(np) {
+				sample = append(sample, np)
+			}
 		} else {
 			debugLogNetProcs("[parse-failed] " + line)
 		}
@@ -225,6 +237,14 @@ func parseNethogsLine(line string) (NetProc, bool) {
 		DownloadPerSec: recvKbps * 1024,
 		BytesPerSec:    (sentKbps + recvKbps) * 1024,
 	}, true
+}
+
+// shouldKeepNethogsProc reports whether a parsed nethogs process entry should be
+// included in the published sample. Rules:
+//   - PID 0 entries cannot be attributed to a real process, so drop them.
+//   - Zero-traffic entries are uninteresting, so drop them.
+func shouldKeepNethogsProc(p NetProc) bool {
+	return p.PID != 0 && (p.UploadPerSec != 0 || p.DownloadPerSec != 0)
 }
 
 // programFromNethogsKey returns a readable program name from a nethogs -t key.
