@@ -9,10 +9,10 @@ import (
 	"time"
 )
 
-// collectGPUProcs lists per-process GPU memory via `nvidia-smi`. When nvidia-smi
-// is absent or fails (macOS/Apple silicon, non-NVIDIA Linux) it reports the
-// metric as unsupported. Memory is returned in bytes.
-func collectGPUProcs() (top []GPUProc, supported bool) {
+// collectGPUProcs lists all processes currently using the GPU via `nvidia-smi`.
+// When nvidia-smi is absent or fails (macOS/Apple silicon, non-NVIDIA Linux) it
+// reports the metric as unsupported. Memory is returned in bytes.
+func collectGPUProcs() (procs []GPUProc, supported bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 	defer cancel()
 
@@ -51,8 +51,5 @@ func collectGPUProcs() (top []GPUProc, supported bool) {
 	}
 
 	sort.Slice(list, func(i, j int) bool { return list[i].MemBytes > list[j].MemBytes })
-	if len(list) > topProcCount {
-		list = list[:topProcCount]
-	}
 	return list, true
 }

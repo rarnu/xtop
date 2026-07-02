@@ -215,8 +215,8 @@ func (c *Collector) CollectNet() NetStat {
 	return n
 }
 
-// CollectGPU returns GPU stats plus, where supported, the top processes by GPU
-// memory usage.
+// CollectGPU returns GPU stats plus, where supported, every process currently
+// using the GPU (sorted by VRAM descending).
 func (c *Collector) CollectGPU() GPUStat {
 	g := collectGPU()
 	if top, supported := collectGPUProcs(); supported {
