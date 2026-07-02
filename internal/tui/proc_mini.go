@@ -45,8 +45,7 @@ func miniRowLines(cw int, rows []miniRow) []string {
 	return out
 }
 
-// unsupportedLines is the placeholder shown when a per-process metric isn't
-// obtainable on the current platform.
-func unsupportedLines() []string {
-	return []string{faintStyle.Render("进程列表: 本平台不支持")}
-}
+// unsupportedLines is no longer used: every card simply shows "无进程数据" when
+// per-process metrics are unavailable. Kept as a thin alias to avoid churn in
+// any code that might still reference it.
+func unsupportedLines() []string { return []string{faintStyle.Render("无进程数据")} }

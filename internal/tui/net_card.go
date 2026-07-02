@@ -28,9 +28,12 @@ func netCard(n collector.NetStat, downHist []float64, innerWidth, innerHeight in
 		valueStyle.Render(fitCell(fmtSizeF(float64(n.TotalDownload)), totalW, false))
 
 	var fixed, list []string
-	if !n.ProcsSupported {
-		fixed = []string{head, "", up, down}
-		list = unsupportedLines()
+	if n.ProcsSupported && len(n.TopProcs) == 0 {
+		fixed = []string{head, "", up, down, miniHeaderLine(cw, "流量")}
+		list = []string{faintStyle.Render("无进程数据")}
+	} else if !n.ProcsSupported {
+		fixed = []string{head, "", up, down, miniHeaderLine(cw, "流量")}
+		list = []string{faintStyle.Render("无进程数据")}
 	} else {
 		rows := make([]miniRow, 0, len(n.TopProcs))
 		for _, p := range n.TopProcs {

@@ -50,7 +50,8 @@ func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bo
 	// Process list (top by disk read+write rate) appended below the mounts.
 	lines = append(lines, "")
 	if !diskSupported {
-		lines = append(lines, unsupportedLines()...)
+		lines = append(lines, miniHeaderLine(cw, "读写/s"))
+		lines = append(lines, faintStyle.Render("无进程数据"))
 	} else {
 		lines = append(lines, miniHeaderLine(cw, "读写/s"))
 		rows := make([]miniRow, 0, len(procs))
