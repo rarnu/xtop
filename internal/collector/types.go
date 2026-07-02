@@ -61,9 +61,11 @@ type NetStat struct {
 
 // NetProc describes one process's network throughput.
 type NetProc struct {
-	PID         int32
-	Command     string
-	BytesPerSec float64 // upload+download bytes/sec since previous snapshot
+	PID           int32
+	Command       string
+	UploadPerSec   float64 // bytes/sec sent
+	DownloadPerSec float64 // bytes/sec received
+	BytesPerSec   float64 // upload+download bytes/sec (kept for convenience)
 }
 
 // GPUStat holds the list of detected GPUs plus availability info.

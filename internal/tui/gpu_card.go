@@ -43,14 +43,14 @@ func gpuCard(g collector.GPUStat, hist []float64, innerWidth, innerHeight int, f
 	// Process list (top by GPU memory) appended below the card stats.
 	lines = append(lines, "")
 	if !g.ProcsSupported {
-		lines = append(lines, miniHeaderLine(cw, "显存"))
+		lines = append(lines, miniHeaderLine(cw, "显存", nil))
 		lines = append(lines, faintStyle.Render("无进程数据"))
 	} else {
-		lines = append(lines, miniHeaderLine(cw, "显存"))
 		rows := make([]miniRow, 0, len(g.TopProcs))
 		for _, p := range g.TopProcs {
 			rows = append(rows, miniRow{Value: fmtSize(p.MemBytes), Command: p.Command})
 		}
+		lines = append(lines, miniHeaderLine(cw, "显存", rows))
 		lines = append(lines, miniRowLines(cw, rows)...)
 	}
 

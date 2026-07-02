@@ -29,17 +29,22 @@ func netCard(n collector.NetStat, downHist []float64, innerWidth, innerHeight in
 
 	var fixed, list []string
 	if n.ProcsSupported && len(n.TopProcs) == 0 {
-		fixed = []string{head, "", up, down, miniHeaderLine(cw, "流量")}
+		fixed = []string{head, "", up, down, miniTwoColHeaderLine(cw, nil)}
 		list = []string{faintStyle.Render("无进程数据")}
 	} else if !n.ProcsSupported {
-		fixed = []string{head, "", up, down, miniHeaderLine(cw, "流量")}
+		fixed = []string{head, "", up, down, miniTwoColHeaderLine(cw, nil)}
 		list = []string{faintStyle.Render("无进程数据")}
 	} else {
 		rows := make([]miniRow, 0, len(n.TopProcs))
 		for _, p := range n.TopProcs {
-			rows = append(rows, miniRow{Value: fmtRate(p.BytesPerSec), Command: p.Command})
+			rows = append(rows, miniRow{
+				UpValue:   fmtRate(p.UploadPerSec),
+				DownValue: fmtRate(p.DownloadPerSec),
+				Command:   p.Command,
+				TwoCol:    true,
+			})
 		}
-		fixed = []string{head, "", up, down, miniHeaderLine(cw, "流量")}
+		fixed = []string{head, "", up, down, miniTwoColHeaderLine(cw, rows)}
 		list = miniRowLines(cw, rows)
 	}
 	return renderCardSplit(innerWidth, innerHeight, "◍", "网络", header, fixed, list, focused, scroll)

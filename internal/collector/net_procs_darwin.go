@@ -141,9 +141,11 @@ func parseNettopLine(line string) (NetProc, bool) {
 	}
 
 	return NetProc{
-		PID:         int32(pid64),
-		Command:     strings.TrimSpace(namePID[:dot]),
-		BytesPerSec: float64(inBytes + outBytes),
+		PID:            int32(pid64),
+		Command:        strings.TrimSpace(namePID[:dot]),
+		UploadPerSec:   float64(outBytes),
+		DownloadPerSec: float64(inBytes),
+		BytesPerSec:    float64(inBytes + outBytes),
 	}, true
 }
 

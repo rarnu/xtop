@@ -37,7 +37,7 @@ func memCard(m collector.MemStat, procs []collector.ProcInfo, innerWidth, innerH
 		rows = append(rows, miniRow{Value: fmtSize(p.MemRSS), Command: p.Command})
 	}
 
-	fixed := []string{bar, "", legend, values, miniHeaderLine(cw, "内存")}
+	fixed := []string{bar, "", legend, values, miniHeaderLine(cw, "内存", rows)}
 	list := miniRowLines(cw, rows)
 	return renderCardSplit(innerWidth, innerHeight, "▤", "内存", header, fixed, list, focused, scroll)
 }
