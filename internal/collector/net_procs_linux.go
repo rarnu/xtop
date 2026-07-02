@@ -180,7 +180,7 @@ func parseNethogsStream(ctx context.Context, r io.Reader, c *Collector, limitSam
 			continue
 		}
 		if np, ok := parseNethogsLine(line); ok {
-			if shouldKeepNethogsProc(np) {
+			if shouldKeepNethogsProc(np) && !shouldHideProc(np.Command) {
 				sample = append(sample, np)
 			}
 		} else {
@@ -243,6 +243,7 @@ func parseNethogsLine(line string) (NetProc, bool) {
 // included in the published sample. Rules:
 //   - PID 0 entries cannot be attributed to a real process, so drop them.
 //   - Zero-traffic entries are uninteresting, so drop them.
+//     (The published step also applies an effective-zero threshold.)
 func shouldKeepNethogsProc(p NetProc) bool {
 	return p.PID != 0 && (p.UploadPerSec != 0 || p.DownloadPerSec != 0)
 }
@@ -263,6 +264,7 @@ func programFromNethogsKey(prefix string) string {
 }
 
 func publishNetProcs(c *Collector, list []NetProc) {
+	list = filterNetProcList(list)
 	sort.Slice(list, func(i, j int) bool { return list[i].BytesPerSec > list[j].BytesPerSec })
 	if len(list) > topProcCount {
 		list = list[:topProcCount]

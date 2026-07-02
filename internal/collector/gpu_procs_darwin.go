@@ -49,7 +49,7 @@ func collectGPUProcs() (procs []GPUProc, supported bool) {
 			continue
 		}
 		name := commandOf(p)
-		if name == "?" {
+		if name == "?" || shouldHideProc(name) {
 			continue
 		}
 		var mem uint64
@@ -63,10 +63,21 @@ func collectGPUProcs() (procs []GPUProc, supported bool) {
 		})
 	}
 
-	if len(list) == 0 {
-		return nil, false
-	}
-
+	list = filterGPUProcList(list)
 	sort.Slice(list, func(i, j int) bool { return list[i].MemBytes > list[j].MemBytes })
 	return list, true
+}
+
+// zeroGPUThreshold is the GPU memory below which a process is considered not to
+// be actively using the GPU and is hidden from the GPU card list.
+const zeroGPUThreshold float64 = 0.1 // bytes
+
+func filterGPUProcList(list []GPUProc) []GPUProc {
+	filtered := make([]GPUProc, 0, len(list))
+	for _, p := range list {
+		if float64(p.MemBytes) >= zeroGPUThreshold {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered
 }

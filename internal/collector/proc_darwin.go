@@ -94,7 +94,9 @@ func parseTopStream(ctx context.Context, r io.Reader, c *Collector) {
 			continue
 		}
 		if pi, ok := parseTopLine(line); ok {
-			sample = append(sample, pi)
+			if !shouldHideProc(pi.Command) {
+				sample = append(sample, pi)
+			}
 		}
 	}
 	flush()
@@ -199,6 +201,8 @@ func topStateCode(s string) string {
 }
 
 func publishProcs(c *Collector, list []ProcInfo) {
+	list = filterProcList(list)
+
 	// top is already sorted by CPU (because of -o cpu), but take a copy for the
 	// Top slice just in case.
 	topCPU := topN(list, topProcCount)

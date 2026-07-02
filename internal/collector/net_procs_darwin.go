@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"context"
 	"io"
+	"os"
 	"os/exec"
 	"sort"
 	"strconv"
@@ -19,6 +20,13 @@ import (
 //
 // Keeping nettop alive avoids the ~5 second startup cost of spawning a fresh
 // process for every sample, and gives the UI a cheap 1-second refresh signal.
+// nettopSampleInterval is the interval nettop waits between samples. We keep it
+// at 5 seconds because nettop is CPU-heavy: even in logging mode it routinely
+// uses 80-130% of a core on a 3-second interval and ~87% on a 5-second interval.
+// A 1-second interval makes the situation noticeably worse without giving the UI
+// a materially faster refresh.
+const nettopSampleInterval = 5 * time.Second
+
 func collectNetProcsLoop(ctx context.Context, c *Collector) {
 	const restartDelay = 5 * time.Second
 	for {
@@ -40,11 +48,11 @@ func runOneNettop(ctx context.Context, c *Collector) {
 	// -P: per-process aggregate
 	// -x: raw numeric counts (no MiB/KiB suffixes)
 	// -d: delta mode (values are per-interval changes)
-	// -s 1: 1 second update interval
+	// -s 3: 3 second update interval (nettop is very CPU-heavy, so avoid 1s)
 	// -l 0: infinite logging-mode samples
 	// -J: keep only bytes_in and bytes_out
 	cmd := detach(exec.CommandContext(ctx, "nettop",
-		"-P", "-x", "-d", "-s", "1", "-l", "0",
+		"-P", "-x", "-d", "-s", strconv.Itoa(int(nettopSampleInterval.Seconds())), "-l", "0",
 		"-J", "bytes_in,bytes_out",
 	))
 
@@ -104,7 +112,9 @@ func parseNettopStream(ctx context.Context, r io.Reader, c *Collector) {
 			continue
 		}
 		if np, ok := parseNettopLine(line); ok {
-			sample = append(sample, np)
+			if !shouldHideProc(np.Command) {
+				sample = append(sample, np)
+			}
 		}
 	}
 	flush()
@@ -149,7 +159,12 @@ func parseNettopLine(line string) (NetProc, bool) {
 	}, true
 }
 
+// zeroTrafficThreshold is the bytes/sec below which a per-process network entry
+// is considered effectively idle and hidden from the network card list.
+const zeroTrafficThreshold = 0.1 // bytes per second
+
 func publishNetProcs(c *Collector, list []NetProc) {
+	list = filterNetProcList(list)
 	sort.Slice(list, func(i, j int) bool { return list[i].BytesPerSec > list[j].BytesPerSec })
 	if len(list) > topProcCount {
 		list = list[:topProcCount]
@@ -164,4 +179,58 @@ func publishNetProcs(c *Collector, list []NetProc) {
 	case c.netProcUpdate <- struct{}{}:
 	default:
 	}
+}
+
+func filterNetProcList(list []NetProc) []NetProc {
+	filtered := make([]NetProc, 0, len(list))
+	for _, p := range list {
+		if p.UploadPerSec >= zeroTrafficThreshold || p.DownloadPerSec >= zeroTrafficThreshold {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered
+}
+
+func init() {
+	// nettop is launched with Setsid so it survives abrupt xtop crashes. Kill any
+	// stale nettop processes started by previous xtop instances to prevent them
+	// from stacking up and consuming CPU.
+	killStaleNettop()
+}
+
+func killStaleNettop() {
+	out, err := exec.Command("ps", "-eo", "pid=,command=").Output()
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		pid, err := strconv.Atoi(fields[0])
+		if err != nil || pid == os.Getpid() {
+			continue
+		}
+		cmd := strings.ToLower(strings.Join(fields[1:], " "))
+		if !strings.Contains(cmd, "nettop") {
+			continue
+		}
+		if strings.Contains(cmd, "-p") && strings.Contains(cmd, "-x") &&
+			strings.Contains(cmd, "-d") && strings.Contains(cmd, "bytes_in,bytes_out") {
+			_ = killProcess(pid)
+		}
+	}
+}
+
+func killProcess(pid int) error {
+	p, err := os.FindProcess(pid)
+	if err != nil {
+		return err
+	}
+	return p.Kill()
 }

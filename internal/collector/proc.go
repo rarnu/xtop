@@ -1,12 +1,48 @@
 package collector
 
 import (
+	"path/filepath"
 	"strings"
 
 	"github.com/shirou/gopsutil/v4/process"
 )
 
 const topProcCount = 20
+
+// hiddenProcs lists process names that should be hidden from dashboard process
+// lists because they are the collectors/tools used by xtop itself.
+var hiddenProcs = map[string]bool{
+	"nettop": true,
+	"top":    true,
+	"xtop":   true,
+}
+
+func shouldHideProc(name string) bool {
+	base := strings.ToLower(filepath.Base(name))
+	if hiddenProcs[base] {
+		return true
+	}
+	// Also match commands that are absolute paths ending with these names.
+	if base == "" {
+		return false
+	}
+	// strip a trailing .exe for Windows/Wine compatibility
+	if strings.HasSuffix(base, ".exe") {
+		base = strings.TrimSuffix(base, ".exe")
+		return hiddenProcs[base]
+	}
+	return false
+}
+
+func filterProcList(list []ProcInfo) []ProcInfo {
+	filtered := make([]ProcInfo, 0, len(list))
+	for _, p := range list {
+		if !shouldHideProc(p.Command) {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered
+}
 
 // topN returns a copy of the first n entries of an already-sorted slice.
 func topN(sorted []ProcInfo, n int) []ProcInfo {

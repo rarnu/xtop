@@ -543,6 +543,7 @@ func (m *model) rebuildMiniListMeta() {
 	}
 
 	// Disk card: list starts after the per-mount blocks, a blank line and header.
+	// The renderer drops zero-rate processes, so keep miniMeta in sync.
 	diskStart := 0
 	for i := range m.snap.Disk.Mounts {
 		if i > 0 {
@@ -551,11 +552,12 @@ func (m *model) rebuildMiniListMeta() {
 		diskStart += 5 // mount head (1) + tank block (4)
 	}
 	diskStart += 2 // blank + mini-list header
+	diskProcs := visibleDiskProcs(m.snap.Proc.TopDisk)
 	m.miniMeta[cardDisk] = miniListMeta{
-		hasList:    m.snap.Proc.DiskSupported && len(m.snap.Proc.TopDisk) > 0,
+		hasList:    m.snap.Proc.DiskSupported && len(diskProcs) > 0,
 		startBodyY: diskStart,
-		pids:       procPIDs(m.snap.Proc.TopDisk),
-		names:      procNames(m.snap.Proc.TopDisk),
+		pids:       procPIDs(diskProcs),
+		names:      procNames(diskProcs),
 	}
 
 	// GPU card: list starts after the per-GPU stats, a blank line and header.
@@ -592,6 +594,18 @@ func procNames(list []collector.ProcInfo) []string {
 		out[i] = p.Command
 	}
 	return out
+}
+
+// visibleDiskProcs returns the disk-card processes that are actually rendered:
+// those with non-zero read or write rates. This must stay in sync with diskCard.
+func visibleDiskProcs(list []collector.ProcInfo) []collector.ProcInfo {
+	filtered := make([]collector.ProcInfo, 0, len(list))
+	for _, p := range list {
+		if p.DiskReadPerSec != 0 || p.DiskWritePerSec != 0 {
+			filtered = append(filtered, p)
+		}
+	}
+	return filtered
 }
 
 func netPIDs(list []collector.NetProc) []int32 {
@@ -640,6 +654,10 @@ func (m *model) miniListHit(x, y int) (pid int32, name string, source cardKey, o
 	row := int(key) / gridCols
 	bodyY0 := row*m.cardH + 3 // top border + header + divider
 	bodyY := y - bodyY0
+	if bodyY < meta.startBodyY {
+		return 0, "", -1, false
+	}
+
 	scroll := m.scrollBars[key].offset
 	rowIdx := bodyY - meta.startBodyY + scroll
 	if rowIdx < 0 || rowIdx >= len(meta.pids) {
@@ -683,7 +701,7 @@ func (m *model) mergeSnap(s collector.Snapshot) {
 	if s.GPU.Available || len(s.GPU.Cards) > 0 {
 		m.snap.GPU = s.GPU
 	}
-	if len(s.Proc.All) > 0 {
+	if s.Proc.All != nil || len(s.Proc.Top) > 0 || len(s.Proc.TopMem) > 0 || len(s.Proc.TopDisk) > 0 {
 		m.snap.Proc = s.Proc
 	}
 	m.snap.Time = s.Time

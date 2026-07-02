@@ -46,7 +46,7 @@ func (c *Collector) collectProc(dt float64) ProcStat {
 
 	for _, p := range procs {
 		cmd := commandOf(p)
-		if cmd == "?" {
+		if cmd == "?" || shouldHideProc(cmd) {
 			continue
 		}
 		pid := p.Pid
