@@ -219,8 +219,8 @@ func renderProcRow(pr collector.ProcInfo, cols []procColumn, actions string, sel
 	return padRow("  "+textStyle.Render(body)+actions, width)
 }
 
-// overlayConfirm renders a centered confirmation dialog on a cleared screen.
-func overlayConfirm(m *model, width, height int) string {
+// overlayConfirmOnBase renders the confirmation dialog over the existing screen.
+func overlayConfirmOnBase(m *model, base string) string {
 	kind := "结束"
 	danger := false
 	if m.confirm.force {
@@ -248,5 +248,14 @@ func overlayConfirm(m *model, width, height int) string {
 			keys,
 		))
 
-	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
+	boxW := lipgloss.Width(box)
+	boxH := len(strings.Split(box, "\n"))
+	left := (m.width - boxW) / 2
+	top := (m.height - boxH) / 2
+	return overlayBox(base, box, left, top)
+}
+
+// overlayConfirm is kept for the old full-screen confirmation API.
+func overlayConfirm(m *model, width, height int) string {
+	return overlayConfirmOnBase(m, strings.Repeat("\n", height-1))
 }

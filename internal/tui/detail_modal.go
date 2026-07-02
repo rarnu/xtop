@@ -9,16 +9,16 @@ import (
 
 // detailBoxSize returns the inner dimensions of the detail popup.
 func detailBoxSize(termW, termH int) (innerW, innerH int) {
-	innerW = termW - 8
-	if innerW > 70 {
-		innerW = 70
+	innerW = termW / 3
+	if innerW > 48 {
+		innerW = 48
 	}
 	if innerW < 30 {
 		innerW = 30
 	}
-	innerH = termH - 6
-	if innerH > 14 {
-		innerH = 14
+	innerH = 11 // title, divider, 6 info rows, 1 blank gap, 1 button row
+	if innerH > termH-4 {
+		innerH = termH - 4
 	}
 	if innerH < 8 {
 		innerH = 8
@@ -26,9 +26,8 @@ func detailBoxSize(termW, termH int) (innerW, innerH int) {
 	return innerW, innerH
 }
 
-// renderDetailModal draws the centered process-detail popup with KILL / FORCE
-// KILL buttons. It also records the button hit boxes in m.detail.
-func renderDetailModal(m *model) string {
+// overlayDetailModal composes the detail popup on top of the existing dashboard.
+func overlayDetailModal(m *model, base string) string {
 	width, height := m.width, m.height
 	innerW, innerH := detailBoxSize(width, height)
 	d := m.detail.proc
@@ -71,7 +70,6 @@ func renderDetailModal(m *model) string {
 		rows = append(rows, strings.Repeat(" ", innerW))
 	}
 
-	// Button row: compute widths so hit boxes can be stored.
 	termLabel := "结束"
 	killLabel := "强制结束"
 	termW := lipgloss.Width(termLabel)
@@ -93,9 +91,7 @@ func renderDetailModal(m *model) string {
 		Width(innerW).
 		Height(innerH).
 		Render(strings.Join(rows, "\n"))
-	frame := lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, box)
 
-	// Store button hit boxes in terminal coordinates.
 	boxW := lipgloss.Width(box)
 	boxH := len(strings.Split(box, "\n"))
 	boxLeft := (width - boxW) / 2
@@ -107,9 +103,99 @@ func renderDetailModal(m *model) string {
 	m.detail.btnY = boxTop + innerH
 
 	if m.confirm.active {
-		return overlayConfirm(m, width, height)
+		return overlayConfirmOnBase(m, base)
 	}
-	return frame
+	return overlayBox(base, box, boxLeft, boxTop)
+}
+
+// overlayBox pastes a rendered box onto a background at (left, top).
+func overlayBox(base, box string, left, top int) string {
+	baseLines := strings.Split(base, "\n")
+	boxLines := strings.Split(box, "\n")
+	boxW := lipgloss.Width(boxLines[0])
+	for i, bl := range boxLines {
+		y := top + i
+		if y < 0 || y >= len(baseLines) {
+			continue
+		}
+		// Keep the original styled background line intact; only split it into
+		// the visible regions that stay uncovered by the dialog.
+		bg := baseLines[y]
+		plain := stripANSI(bg)
+		plainW := lipgloss.Width(plain)
+
+		before := ""
+		if left > 0 {
+			if left >= plainW {
+				before = bg
+			} else {
+				before = truncateStyled(bg, left)
+			}
+		}
+
+		after := ""
+		afterStart := left + boxW
+		if afterStart < plainW {
+			after = truncateStyledFrom(bg, afterStart)
+		}
+		baseLines[y] = before + bl + after
+	}
+	return strings.Join(baseLines, "\n")
+}
+
+// truncateStyledFrom returns the suffix of a styled string starting at visual
+// column start, preserving ANSI styles.
+func truncateStyledFrom(s string, start int) string {
+	var out strings.Builder
+	visible := 0
+	inESC := false
+	started := false
+	for _, r := range s {
+		if inESC {
+			out.WriteRune(r)
+			if r == 'm' {
+				inESC = false
+			}
+			continue
+		}
+		if r == '\x1b' {
+			out.WriteRune(r)
+			inESC = true
+			continue
+		}
+		rw := lipgloss.Width(string(r))
+		if !started {
+			if visible+rw > start {
+				started = true
+			} else {
+				visible += rw
+				continue
+			}
+		}
+		out.WriteRune(r)
+		visible += rw
+	}
+	return out.String()
+}
+
+// renderDetailModal is kept for any callers that expect the old full-screen API.
+func renderDetailModal(m *model) string {
+	return overlayDetailModal(m, m.dashBase())
+}
+
+// dashBase returns the current dashboard view without any overlays.
+func (m *model) dashBase() string {
+	lines := m.dashLines
+	contentH := m.height - footerHeight
+	if len(lines) > contentH {
+		lines = lines[:contentH]
+	}
+	if len(lines) < contentH {
+		for len(lines) < contentH {
+			lines = append(lines, "")
+		}
+	}
+	return strings.Join(lines, "\n") + "\n" + m.dashFooter()
 }
 
 // detailExtra returns the card-specific metric label and value for the detail

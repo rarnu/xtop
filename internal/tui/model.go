@@ -270,25 +270,31 @@ func (m *model) View() string {
 	if m.width == 0 || m.height == 0 {
 		return "正在初始化 XTOP..."
 	}
-	if m.detail.active {
-		return renderDetailModal(m)
-	}
-	if m.modal {
-		return renderProcModal(m)
-	}
 
+	// Always render the dashboard as the bottom layer.
 	lines := m.dashLines
 	contentH := m.height - footerHeight
 	if len(lines) > contentH {
 		lines = lines[:contentH]
 	}
 	if len(lines) < contentH {
-		// Should not happen because geometry sizes cards to fit.
 		for len(lines) < contentH {
 			lines = append(lines, "")
 		}
 	}
-	return strings.Join(lines, "\n") + "\n" + m.dashFooter()
+	base := strings.Join(lines, "\n") + "\n" + m.dashFooter()
+
+	switch {
+	case m.detail.active:
+		return overlayDetailModal(m, base)
+	case m.modal:
+		if m.confirm.active {
+			return overlayConfirmOnBase(m, base)
+		}
+		return renderProcModal(m)
+	default:
+		return base
+	}
 }
 
 const footerHeight = 1 // status/help bar at the very bottom
