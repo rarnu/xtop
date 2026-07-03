@@ -12,10 +12,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.26'
 
@@ -34,10 +34,10 @@ jobs:
         arch: [amd64, arm64]   # Linux 目标架构
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.26'
 
@@ -49,17 +49,17 @@ jobs:
 
   build-darwin:
     name: Build Darwin (${{ matrix.arch }})
-    runs-on: macos-latest      # 使用 macOS runner
+    runs-on: macos-26      # 使用 macOS runner
     strategy:
       fail-fast: false
       matrix:
         arch: [arm64]          # 如需 amd64 可添加，但 Apple Silicon 现以 arm64 为主
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: '1.26'
 
