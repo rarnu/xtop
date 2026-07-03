@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	openProcLabel  = "打开进程管理"
+	openProcLabel  = "proc.open_manager"
 	openProcNeedle = "打开进程管理"
 )
 
@@ -21,9 +21,9 @@ func procCard(p collector.ProcStat, innerWidth, innerHeight int, focused bool, s
 
 	head := labelStyle.Render(
 		fitCell("PID", pidW, false) +
-			fitCell("USER", userW, false) +
-			fitCell("CPU", cpuW, false) +
-			fitCell("MEM", memW, false) +
+			fitCell(T("proc.detail.user"), userW, false) +
+			fitCell(T("proc.detail.cpu"), cpuW, false) +
+			fitCell(T("proc.detail.mem"), memW, false) +
 			fitCell("CMD", cmdW, false))
 
 	lines := []string{head}
@@ -36,11 +36,11 @@ func procCard(p collector.ProcStat, innerWidth, innerHeight int, focused bool, s
 		lines = append(lines, row)
 	}
 	if len(p.Top) == 0 {
-		lines = append(lines, faintStyle.Render("无进程数据"))
+		lines = append(lines, faintStyle.Render(T("no_data.net_procs")))
 	}
 
-	btn := rowButtonStyle.Render(openProcLabel)
-	return renderCard(innerWidth, innerHeight, "☰", "进程", btn, lines, focused, scroll)
+	btn := rowButtonStyle.Render(T(openProcLabel))
+	return renderCard(innerWidth, innerHeight, "☰", T("card.proc"), btn, lines, focused, scroll)
 }
 
 // lipglossPct renders a CPU percentage coloured by load level.

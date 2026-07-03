@@ -10,7 +10,7 @@ func memCard(m collector.MemStat, procs []collector.ProcInfo, innerWidth, innerH
 	cw := contentWidth(innerWidth)
 
 	if m.Total == 0 {
-		return renderCard(innerWidth, innerHeight, "▤", "内存", header, []string{faintStyle.Render("无内存数据")}, focused, scroll)
+		return renderCard(innerWidth, innerHeight, "▤", T("card.mem"), header, []string{faintStyle.Render(T("no_data.mem"))}, focused, scroll)
 	}
 
 	total := float64(m.Total)
@@ -22,9 +22,9 @@ func memCard(m collector.MemStat, procs []collector.ProcInfo, innerWidth, innerH
 
 	colW := cw / 3
 	legend := padRow(
-		padRow(dot(colRed)+" "+labelStyle.Render("已用"), colW)+
-			padRow(dot(colGrayLite)+" "+labelStyle.Render("缓存"), colW)+
-			dot(colGreen)+" "+labelStyle.Render("空闲"),
+		padRow(dot(colRed)+" "+labelStyle.Render(T("label.used")), colW)+
+			padRow(dot(colGrayLite)+" "+labelStyle.Render(T("label.cached")), colW)+
+			dot(colGreen)+" "+labelStyle.Render(T("label.free")),
 		cw)
 	values := padRow(
 		padRow(valueStyle.Render(fmtSize(m.Used)), colW)+
@@ -37,7 +37,7 @@ func memCard(m collector.MemStat, procs []collector.ProcInfo, innerWidth, innerH
 		rows = append(rows, miniRow{Value: fmtSize(p.MemRSS), Command: p.Command, PID: p.PID})
 	}
 
-	fixed := []string{bar, "", legend, values, miniHeaderLine(cw, "内存", rows)}
+	fixed := []string{bar, "", legend, values, miniHeaderLine(cw, T("label.memory"), rows)}
 	list := miniRowLines(cw, rows, selected)
-	return renderCardSplit(innerWidth, innerHeight, "▤", "内存", header, fixed, list, focused, scroll)
+	return renderCardSplit(innerWidth, innerHeight, "▤", T("card.mem"), header, fixed, list, focused, scroll)
 }

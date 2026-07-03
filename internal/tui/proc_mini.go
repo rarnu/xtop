@@ -43,7 +43,7 @@ func miniValW(cw int, valueHead string, rows []miniRow) int {
 func miniHeaderLine(cw int, valueHead string, rows []miniRow) string {
 	valW := miniValW(cw, valueHead, rows)
 	cmdW := maxInt(cw-valW-1, 1)
-	return labelStyle.Render(fitCell(valueHead, valW, false)) + " " + labelStyle.Render(fitCell("进程", cmdW, false))
+	return labelStyle.Render(fitCell(valueHead, valW, false)) + " " + labelStyle.Render(fitCell(T("card.proc"), cmdW, false))
 }
 
 // miniRowLines renders the data rows of a process mini-list at content width cw.
@@ -51,7 +51,7 @@ func miniHeaderLine(cw int, valueHead string, rows []miniRow) string {
 // background so the user can see which process was clicked.
 func miniRowLines(cw int, rows []miniRow, selected selectedProc) []string {
 	if len(rows) == 0 {
-		return []string{faintStyle.Render("无进程数据")}
+		return []string{faintStyle.Render(T("no_data.net_procs"))}
 	}
 
 	// Two-column network rows: size the value columns to the widest actual value
@@ -101,7 +101,7 @@ func miniRowLines(cw int, rows []miniRow, selected selectedProc) []string {
 // (or "读/s  写/s  进程") matching the row widths computed by miniRowLines.
 func miniTwoColHeaderLine(cw int, rows []miniRow, leftHead, rightHead string) string {
 	if len(rows) == 0 {
-		return labelStyle.Render(leftHead) + " " + labelStyle.Render(rightHead) + " " + labelStyle.Render("进程")
+		return labelStyle.Render(leftHead) + " " + labelStyle.Render(rightHead) + " " + labelStyle.Render(T("card.proc"))
 	}
 	minValW := 6
 	maxValW := maxInt(cw/3, minValW)
@@ -115,10 +115,10 @@ func miniTwoColHeaderLine(cw int, rows []miniRow, leftHead, rightHead string) st
 	cmdW := maxInt(cw-upW-downW-2, 1)
 	return labelStyle.Render(fitCell(leftHead, upW, false)) + " " +
 		labelStyle.Render(fitCell(rightHead, downW, false)) + " " +
-		labelStyle.Render(fitCell("进程", cmdW, false))
+		labelStyle.Render(fitCell(T("card.proc"), cmdW, false))
 }
 
 // unsupportedLines is no longer used: every card simply shows "无进程数据" when
 // per-process metrics are unavailable. Kept as a thin alias to avoid churn in
 // any code that might still reference it.
-func unsupportedLines() []string { return []string{faintStyle.Render("无进程数据")} }
+func unsupportedLines() []string { return []string{faintStyle.Render(T("no_data.net_procs"))} }

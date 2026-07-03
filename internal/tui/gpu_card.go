@@ -20,9 +20,9 @@ func gpuCard(g collector.GPUStat, hist []float64, innerWidth, innerHeight int, f
 	if !g.Available || len(g.Cards) == 0 {
 		msg := g.Message
 		if msg == "" {
-			msg = "无 GPU 数据"
+			msg = T("no_data.gpu")
 		}
-		return renderCard(innerWidth, innerHeight, "◉", "GPU", header, []string{faintStyle.Render(msg)}, focused, scroll)
+		return renderCard(innerWidth, innerHeight, "◉", T("card.gpu"), header, []string{faintStyle.Render(msg)}, focused, scroll)
 	}
 
 	var lines []string
@@ -31,30 +31,30 @@ func gpuCard(g collector.GPUStat, hist []float64, innerWidth, innerHeight int, f
 			lines = append(lines, "")
 		}
 		lines = append(lines, gpuNameStyle.Render(truncPlain(c.Name, cw)))
-		lines = append(lines, joinLR(labelStyle.Render("功耗"), valueStyle.Render(gpuPower(c.PowerW)), cw))
-		lines = append(lines, joinLR(labelStyle.Render("内存"), valueStyle.Render(gpuMem(c)), cw))
+		lines = append(lines, joinLR(labelStyle.Render(T("label.power")), valueStyle.Render(gpuPower(c.PowerW)), cw))
+		lines = append(lines, joinLR(labelStyle.Render(T("label.memory")), valueStyle.Render(gpuMem(c)), cw))
 		if c.MemTotal > 0 {
 			lines = append(lines, blockBar(cw, float64(c.MemUsed)/float64(c.MemTotal)*100))
 		}
-		lines = append(lines, gaugeRow("温度", c.TempC, gpuTemp(c.TempC), cw))
-		lines = append(lines, gaugeRow("负载", c.LoadPct, gpuLoad(c.LoadPct), cw))
+		lines = append(lines, gaugeRow(T("label.temperature"), c.TempC, gpuTemp(c.TempC), cw))
+		lines = append(lines, gaugeRow(T("label.load"), c.LoadPct, gpuLoad(c.LoadPct), cw))
 	}
 
 	// Process list (top by GPU memory) appended below the card stats.
 	lines = append(lines, "")
 	if !g.ProcsSupported {
-		lines = append(lines, miniHeaderLine(cw, "显存", nil))
-		lines = append(lines, faintStyle.Render("无进程数据"))
+		lines = append(lines, miniHeaderLine(cw, T("label.gpu_mem"), nil))
+		lines = append(lines, faintStyle.Render(T("no_data.net_procs")))
 	} else {
 		rows := make([]miniRow, 0, len(g.TopProcs))
 		for _, p := range g.TopProcs {
 			rows = append(rows, miniRow{Value: fmtSize(p.MemBytes), Command: p.Command, PID: p.PID})
 		}
-		lines = append(lines, miniHeaderLine(cw, "显存", rows))
+		lines = append(lines, miniHeaderLine(cw, T("label.gpu_mem"), rows))
 		lines = append(lines, miniRowLines(cw, rows, selected)...)
 	}
 
-	return renderCard(innerWidth, innerHeight, "◉", "GPU", header, lines, focused, scroll)
+	return renderCard(innerWidth, innerHeight, "◉", T("card.gpu"), header, lines, focused, scroll)
 }
 
 // gaugeRow renders: label + gauge + right-aligned value. gaugePct <0 draws an
@@ -73,7 +73,7 @@ func gaugeRow(label string, gaugePct float64, value string, innerWidth int) stri
 
 func gpuPower(w float64) string {
 	if w < 0 {
-		return "N/A"
+		return T("na")
 	}
 	return fmt.Sprintf("%.0f W", w)
 }
@@ -90,14 +90,14 @@ func gpuMem(c collector.GPUCard) string {
 
 func gpuTemp(t float64) string {
 	if t < 0 {
-		return "N/A"
+		return T("na")
 	}
 	return fmt.Sprintf("%.0f °C", t)
 }
 
 func gpuLoad(l float64) string {
 	if l < 0 {
-		return "N/A"
+		return T("na")
 	}
 	return fmt.Sprintf("%.0f %%", l)
 }

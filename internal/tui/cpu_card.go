@@ -15,7 +15,7 @@ func cpuCard(c collector.CPUStat, hist []float64, innerWidth, innerHeight int, f
 
 	n := len(c.PerCore)
 	if n == 0 {
-		return renderCard(innerWidth, innerHeight, "▣", "CPU", header, []string{faintStyle.Render("无 CPU 数据")}, focused, scroll)
+		return renderCard(innerWidth, innerHeight, "▣", T("card.cpu"), header, []string{faintStyle.Render(T("no_data.cpu"))}, focused, scroll)
 	}
 
 	labelW := maxInt(len(strconv.Itoa(n-1)), 1)
@@ -28,7 +28,7 @@ func cpuCard(c collector.CPUStat, hist []float64, innerWidth, innerHeight int, f
 		pct := valueStyle.Render(fmt.Sprintf("%5.1f", v))
 		lines = append(lines, label+" "+meterBar(meterW, v)+" "+pct)
 	}
-	return renderCard(innerWidth, innerHeight, "▣", "CPU", header, lines, focused, scroll)
+	return renderCard(innerWidth, innerHeight, "▣", T("card.cpu"), header, lines, focused, scroll)
 }
 
 func clampInt(v, lo, hi int) int {

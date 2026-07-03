@@ -17,7 +17,7 @@ func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bo
 	cw := contentWidth(innerWidth)
 
 	if len(d.Mounts) == 0 {
-		return renderCard(innerWidth, innerHeight, "▦", "磁盘", header, []string{faintStyle.Render("无磁盘数据")}, focused, scroll)
+		return renderCard(innerWidth, innerHeight, "▦", T("card.disk"), header, []string{faintStyle.Render(T("no_data.disk"))}, focused, scroll)
 	}
 
 	tw := maxInt(cw-5, 8) // text block width beside the 3-wide tank
@@ -31,19 +31,19 @@ func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bo
 
 		head := joinLR(
 			dot(levelColor(m.UsedPercent))+" "+textStyle.Render(truncPlain(m.Mountpoint, tw-8)),
-			labelStyle.Render("类型 ")+badgeStyle.Render(fstypeLabel(m.Fstype)),
+			labelStyle.Render(T("label.type"))+" "+badgeStyle.Render(fstypeLabel(m.Fstype)),
 			cw)
 		lines = append(lines, head)
 
 		textLines := []string{
 			twoCol(
-				labelStyle.Render("读/s")+"\n"+valueStyle.Render(fmtBytesF(m.ReadPerSec)),
-				labelStyle.Render("已用")+"\n"+valueStyle.Render(fmtSize(m.Used)+fmt.Sprintf("(%.0f%%)", m.UsedPercent)),
+				labelStyle.Render(T("label.read"))+"\n"+valueStyle.Render(fmtBytesF(m.ReadPerSec)),
+				labelStyle.Render(T("label.used"))+"\n"+valueStyle.Render(fmtSize(m.Used)+fmt.Sprintf("(%.0f%%)", m.UsedPercent)),
 				half, tw,
 			),
 			twoCol(
-				labelStyle.Render("写/s")+"\n"+valueStyle.Render(fmtBytesF(m.WritePerSec)),
-				labelStyle.Render("可用")+"\n"+valueStyle.Render(fmtSize(m.Free)+" / "+fmtSize(m.Total)),
+				labelStyle.Render(T("label.write"))+"\n"+valueStyle.Render(fmtBytesF(m.WritePerSec)),
+				labelStyle.Render(T("label.free"))+"\n"+valueStyle.Render(fmtSize(m.Free)+" / "+fmtSize(m.Total)),
 				half, tw,
 			),
 		}
@@ -56,8 +56,8 @@ func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bo
 	// Process list (top by disk read+write rate) appended below the mounts.
 	lines = append(lines, "")
 	if !diskSupported {
-		lines = append(lines, miniTwoColHeaderLine(cw, nil, "读/s", "写/s"))
-		lines = append(lines, faintStyle.Render("无进程数据"))
+		lines = append(lines, miniTwoColHeaderLine(cw, nil, T("label.read"), T("label.write")))
+		lines = append(lines, faintStyle.Render(T("no_data.net_procs")))
 	} else {
 		rows := make([]miniRow, 0, len(procs))
 		for _, p := range procs {
@@ -72,11 +72,11 @@ func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bo
 				TwoCol:    true,
 			})
 		}
-		lines = append(lines, miniTwoColHeaderLine(cw, rows, "读/s", "写/s"))
+		lines = append(lines, miniTwoColHeaderLine(cw, rows, T("label.read"), T("label.write")))
 		lines = append(lines, miniRowLines(cw, rows, selected)...)
 	}
 
-	return renderCard(innerWidth, innerHeight, "▦", "磁盘", header, lines, focused, scroll)
+	return renderCard(innerWidth, innerHeight, "▦", T("card.disk"), header, lines, focused, scroll)
 }
 
 // twoCol lays two styled blocks side by side. Each block may contain multiple
@@ -102,7 +102,7 @@ func twoCol(a, b string, left, total int) string {
 
 func fstypeLabel(fs string) string {
 	if fs == "" {
-		return "unknown"
+		return T("unknown")
 	}
 	return fs
 }

@@ -16,24 +16,24 @@ func netCard(n collector.NetStat, downHist []float64, innerWidth, innerHeight in
 	totalW := rest - speedW
 
 	head := padRow("", labelW) +
-		labelStyle.Render(fitCell("速度", speedW, false)) +
-		labelStyle.Render(fitCell("已用流量", totalW, false))
+		labelStyle.Render(fitCell(T("label.speed"), speedW, false)) +
+		labelStyle.Render(fitCell(T("label.total_used"), totalW, false))
 
-	up := padRow(dot(colGreen)+" "+textStyle.Render("上传"), labelW) +
+	up := padRow(dot(colGreen)+" "+textStyle.Render(T("label.upload")), labelW) +
 		valueStyle.Render(fitCell(fmtRate(n.UploadPerSec), speedW, false)) +
 		valueStyle.Render(fitCell(fmtSizeF(float64(n.TotalUpload)), totalW, false))
 
-	down := padRow(dot(colBlue)+" "+textStyle.Render("下载"), labelW) +
+	down := padRow(dot(colBlue)+" "+textStyle.Render(T("label.download")), labelW) +
 		valueStyle.Render(fitCell(fmtRate(n.DownloadPerSec), speedW, false)) +
 		valueStyle.Render(fitCell(fmtSizeF(float64(n.TotalDownload)), totalW, false))
 
 	var fixed, list []string
 	if n.ProcsSupported && len(n.TopProcs) == 0 {
-		fixed = []string{head, "", up, down, miniTwoColHeaderLine(cw, nil, "上传", "下载")}
-		list = []string{faintStyle.Render("无进程数据")}
+		fixed = []string{head, "", up, down, miniTwoColHeaderLine(cw, nil, T("label.upload"), T("label.download"))}
+		list = []string{faintStyle.Render(T("no_data.net_procs"))}
 	} else if !n.ProcsSupported {
-		fixed = []string{head, "", up, down, miniTwoColHeaderLine(cw, nil, "上传", "下载")}
-		list = []string{faintStyle.Render("无进程数据")}
+		fixed = []string{head, "", up, down, miniTwoColHeaderLine(cw, nil, T("label.upload"), T("label.download"))}
+		list = []string{faintStyle.Render(T("no_data.net_procs"))}
 	} else {
 		rows := make([]miniRow, 0, len(n.TopProcs))
 		for _, p := range n.TopProcs {
@@ -45,8 +45,8 @@ func netCard(n collector.NetStat, downHist []float64, innerWidth, innerHeight in
 				TwoCol:    true,
 			})
 		}
-		fixed = []string{head, "", up, down, miniTwoColHeaderLine(cw, rows, "上传", "下载")}
+		fixed = []string{head, "", up, down, miniTwoColHeaderLine(cw, rows, T("label.upload"), T("label.download"))}
 		list = miniRowLines(cw, rows, selected)
 	}
-	return renderCardSplit(innerWidth, innerHeight, "◍", "网络", header, fixed, list, focused, scroll)
+	return renderCardSplit(innerWidth, innerHeight, "◍", T("card.net"), header, fixed, list, focused, scroll)
 }

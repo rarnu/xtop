@@ -33,19 +33,19 @@ func overlayDetailModal(m *model, base string) string {
 	d := m.detail.proc
 
 	rows := []string{
-		center(titleStyle.Render("进程详情"), innerW),
+		center(titleStyle.Render(T("proc.detail.title")), innerW),
 		divider(innerW),
 	}
 
 	info := []struct {
 		label, value string
 	}{
-		{"PID", fmt.Sprintf("%d", d.PID)},
-		{"命令", d.Command},
-		{"用户", d.User},
-		{"状态", d.Status},
-		{"CPU", fmt.Sprintf("%.1f%%", d.CPU)},
-		{"内存", fmtSize(d.MemRSS)},
+		{T("proc.detail.pid"), fmt.Sprintf("%d", d.PID)},
+		{T("proc.detail.command"), d.Command},
+		{T("proc.detail.user"), d.User},
+		{T("proc.detail.status"), d.Status},
+		{T("proc.detail.cpu"), fmt.Sprintf("%.1f%%", d.CPU)},
+		{T("proc.detail.mem"), fmtSize(d.MemRSS)},
 	}
 
 	extraLabel, extraValue := detailExtra(d, m.detail.source)
@@ -70,8 +70,8 @@ func overlayDetailModal(m *model, base string) string {
 		rows = append(rows, strings.Repeat(" ", innerW))
 	}
 
-	termLabel := "结束"
-	killLabel := "强制结束"
+	termLabel := T("proc.detail.terminate")
+	killLabel := T("proc.detail.force_kill")
 	termW := lipgloss.Width(termLabel)
 	killW := lipgloss.Width(killLabel)
 	gap := 4
@@ -206,11 +206,11 @@ func detailExtra(d detailProc, source cardKey) (label, value string) {
 	case cardMem:
 		return "", "" // memory already in common info
 	case cardNet:
-		return "网络", fmtRate(d.NetUp) + " / " + fmtRate(d.NetDown)
+		return T("proc.detail.net"), fmtRate(d.NetUp) + " / " + fmtRate(d.NetDown)
 	case cardDisk:
-		return "磁盘", fmtRate(d.DiskRead) + " / " + fmtRate(d.DiskWrite)
+		return T("proc.detail.disk"), fmtRate(d.DiskRead) + " / " + fmtRate(d.DiskWrite)
 	case cardGPU:
-		return "显存", fmtSize(d.GPUMem)
+		return T("proc.detail.gpu"), fmtSize(d.GPUMem)
 	}
 	return "", ""
 }

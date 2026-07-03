@@ -303,7 +303,7 @@ func (m *model) scrollbarHit(x, y int) (key cardKey, onThumb bool, thumbY0, thum
 
 func (m *model) View() string {
 	if m.width == 0 || m.height == 0 {
-		return "正在初始化 XTOP..."
+		return T("init")
 	}
 
 	// Always render the dashboard as the bottom layer.
@@ -553,7 +553,7 @@ func (m *model) updateModalMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 func (m *model) recompute() {
 	m.dashLines = m.renderDashboard()
 	m.rebuildMiniListMeta()
-	if line, x0, x1, ok := findText(m.dashLines, openProcNeedle); ok {
+	if line, x0, x1, ok := findText(m.dashLines, "打开进程管理"); ok {
 		m.btnLine, m.btnX0, m.btnX1, m.btnFound = line, x0, x1, true
 	} else {
 		m.btnFound = false
@@ -707,15 +707,15 @@ func (m *model) miniListHit(x, y int) (pid int32, name string, source cardKey, o
 }
 
 func (m *model) dashFooter() string {
-	help := helpBarStyle.Render("P/Enter 进程管理 · 鼠标滚轮滚动卡片 · q 退出")
+	help := helpBarStyle.Render(T("footer.help"))
 	status := ""
 	if m.haveSnap {
 		memPct := 0.0
 		if m.snap.Mem.Total > 0 {
 			memPct = float64(m.snap.Mem.Used) / float64(m.snap.Mem.Total) * 100
 		}
-		status = faintStyle.Render(fmt.Sprintf("CPU %.0f%% · 内存 %.0f%% · %s",
-			m.snap.CPU.Overall, memPct, m.snap.Time.Format("15:04:05")))
+		status = faintStyle.Render(fmt.Sprintf("CPU %.0f%% · %s %.0f%% · %s",
+			m.snap.CPU.Overall, T("label.used"), memPct, m.snap.Time.Format("15:04:05")))
 	}
 	return joinLR(help, status, m.width)
 }

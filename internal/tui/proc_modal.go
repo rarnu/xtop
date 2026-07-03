@@ -27,10 +27,10 @@ const (
 
 var sortTitles = map[sortCol]string{
 	sortPID:   "PID",
-	sortUser:  "USER",
-	sortStat:  "STAT",
-	sortCPU:   "CPU",
-	sortMem:   "MEM",
+	sortUser:  T("proc.detail.user"),
+	sortStat:  T("proc.detail.status"),
+	sortCPU:   T("proc.detail.cpu"),
+	sortMem:   T("proc.detail.mem"),
 	sortStart: "START",
 	sortCmd:   "CMD",
 }
@@ -79,8 +79,8 @@ func procColumns(width int) (cols []procColumn, actX int) {
 
 // actionHit returns the x spans of the KILL and FORCE-KILL buttons within a row.
 func actionHit(actX int) (termX0, termX1, killX0, killX1 int) {
-	wTerm := lipgloss.Width("结束")
-	wKill := lipgloss.Width("强制结束")
+	wTerm := lipgloss.Width(T("proc.detail.terminate"))
+	wKill := lipgloss.Width(T("proc.detail.force_kill"))
 	termX0 = actX
 	termX1 = termX0 + wTerm
 	killX0 = termX1 + 1
@@ -135,8 +135,8 @@ func renderProcModal(m *model) string {
 	visible := maxInt(height-3, 1)
 
 	// Title bar
-	title := titleStyle.Render("XTOP") + faintStyle.Render(" · 进程管理")
-	hint := faintStyle.Render(fmt.Sprintf("共 %d 进程", len(m.procRows)))
+	title := titleStyle.Render("XTOP") + faintStyle.Render(" · "+T("proc.modal.title"))
+	hint := faintStyle.Render(Tf("proc.modal.count", len(m.procRows)))
 	lines := []string{joinLR(title, hint, width)}
 
 	// Header row with sort indicators
@@ -157,12 +157,12 @@ func renderProcModal(m *model) string {
 		}
 		hb.WriteString(st.Render(fitCell(t, c.w, false)))
 	}
-	hb.WriteString(labelStyle.Render(fitCell("操作", actionW, false)))
+	hb.WriteString(labelStyle.Render(fitCell(T("proc.modal.action"), actionW, false)))
 	lines = append(lines, padRow(hb.String(), width))
 
 	// Body rows
-	term := rowButtonStyle.Render("结束")
-	kill := rowButtonDangerStyle.Render("强制结束")
+	term := rowButtonStyle.Render(T("proc.detail.terminate"))
+	kill := rowButtonDangerStyle.Render(T("proc.detail.force_kill"))
 	actions := padRow(term+" "+kill, actionW)
 
 	for i := 0; i < visible; i++ {
@@ -177,7 +177,7 @@ func renderProcModal(m *model) string {
 	}
 
 	// Footer help
-	help := helpBarStyle.Render("↑/↓ 选择 · 1-7/点击表头 排序 · k 结束 · K/f 强制结束 · ESC 返回")
+	help := helpBarStyle.Render(T("proc.modal.help"))
 	lines = append(lines, padRow(help, width))
 
 	frame := strings.Join(lines, "\n")
@@ -221,10 +221,8 @@ func renderProcRow(pr collector.ProcInfo, cols []procColumn, actions string, sel
 
 // overlayConfirmOnBase renders the confirmation dialog over the existing screen.
 func overlayConfirmOnBase(m *model, base string) string {
-	kind := "结束"
 	danger := false
 	if m.confirm.force {
-		kind = "强制结束"
 		danger = true
 	}
 	titleC := colGreenHi
@@ -232,9 +230,12 @@ func overlayConfirmOnBase(m *model, base string) string {
 		titleC = colRed
 	}
 
-	q := fmt.Sprintf("确认%s进程?", kind)
+	q := T("confirm.terminate")
+	if m.confirm.force {
+		q = T("confirm.force_kill")
+	}
 	info := fmt.Sprintf("PID %d  %s", m.confirm.pid, truncPlain(m.confirm.name, 40))
-	keys := faintStyle.Render("y 确认   n/ESC 取消")
+	keys := faintStyle.Render(T("confirm.keys"))
 
 	box := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).

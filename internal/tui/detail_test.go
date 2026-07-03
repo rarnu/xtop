@@ -35,12 +35,12 @@ func TestDetailDialogSizeAndColors(t *testing.T) {
 	var topY, bottomY int
 	for i, l := range lines {
 		plain := stripANSI(l)
-		if strings.Contains(plain, "进程详情") {
+		if strings.Contains(plain, T("proc.detail.title")) {
 			if topY == 0 {
 				topY = i
 			}
 		}
-		if strings.Contains(plain, "结束") && strings.Contains(plain, "强制结束") {
+		if strings.Contains(plain, T("proc.detail.terminate")) && strings.Contains(plain, T("proc.detail.force_kill")) {
 			bottomY = i
 		}
 	}
@@ -51,7 +51,7 @@ func TestDetailDialogSizeAndColors(t *testing.T) {
 
 	// Check that the dialog title line has colored title text.
 	titleLine := lines[topY]
-	if !strings.Contains(titleLine, titleStyle.Render("进程详情")) {
+	if !strings.Contains(titleLine, titleStyle.Render(T("proc.detail.title"))) {
 		t.Fatalf("title line missing title style: %q", titleLine)
 	}
 
