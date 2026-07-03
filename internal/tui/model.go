@@ -77,6 +77,9 @@ type model struct {
 	// process detail popup state (feature: click mini-list process)
 	detail detailState
 
+	// about dialog state
+	about aboutState
+
 	// selected process row in a mini-list (highlight effect).
 	selected selectedProc
 
@@ -94,6 +97,17 @@ type detailState struct {
 	btnY              int
 	killX0, killX1    int
 	forceX0, forceX1  int
+}
+
+// aboutState holds the about dialog.
+type aboutState struct {
+	active bool
+	info   aboutInfo
+
+	// button hit boxes in terminal coordinates, set by overlayAboutModal.
+	btnY    int
+	okX0    int
+	okX1    int
 }
 
 // detailProc is the information shown in the detail popup.
@@ -139,6 +153,7 @@ func New() *model {
 		col:     collector.New(),
 		sortCol: sortPID,
 		sortAsc: true,
+		about:   aboutState{info: defaultAbout()},
 	}
 
 	// Pre-fill process lists from the on-disk cache so the memory/network/disk
@@ -222,6 +237,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, collectPart(m.col, msg.part)
 
 	case tea.KeyMsg:
+		if m.about.active {
+			if msg.String() == "a" || msg.String() == "esc" || msg.String() == "enter" {
+				m.about.active = false
+				return m, nil
+			}
+			return m, nil
+		}
 		if m.detail.active {
 			return m.updateDetailKey(msg)
 		}
@@ -231,6 +253,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateDashKey(msg)
 
 	case tea.MouseMsg:
+		if m.about.active {
+			return m.updateAboutMouse(msg)
+		}
 		if m.detail.active {
 			return m.updateDetailMouse(msg)
 		}
@@ -322,6 +347,8 @@ func (m *model) View() string {
 	switch {
 	case m.detail.active:
 		return overlayDetailModal(m, base)
+	case m.about.active:
+		return overlayAboutModal(m, base)
 	case m.modal:
 		if m.confirm.active {
 			return overlayConfirmOnBase(m, base)
@@ -344,6 +371,9 @@ func (m *model) updateDashKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, tea.Quit
 	case "p", "enter":
 		return m, m.openModal()
+	case "a":
+		m.about.active = true
+		return m, nil
 	}
 	return m, nil
 }
@@ -1013,6 +1043,29 @@ func (m *model) updateDetailMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			m.startDetailConfirm(true)
 			return m, nil
 		}
+	}
+	return m, nil
+}
+
+func (m *model) updateAboutMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
+	if msg.Button != tea.MouseButtonLeft || msg.Action != tea.MouseActionPress {
+		return m, nil
+	}
+	x, y := msg.X, msg.Y
+
+	// Click outside the popup or on the OK button closes it.
+	boxW, boxH := aboutDialogSize(m.width, m.height)
+	x0 := (m.width - boxW) / 2
+	x1 := x0 + boxW
+	y0 := (m.height - boxH) / 2
+	y1 := y0 + boxH
+	if x < x0 || x >= x1 || y < y0 || y >= y1 {
+		m.about.active = false
+		return m, nil
+	}
+	if y == m.about.btnY && x >= m.about.okX0 && x < m.about.okX1 {
+		m.about.active = false
+		return m, nil
 	}
 	return m, nil
 }
