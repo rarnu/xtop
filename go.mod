@@ -1,6 +1,6 @@
 module xtop
 
-go 1.27
+go 1.26
 
 require (
 	github.com/charmbracelet/bubbletea v1.3.10
