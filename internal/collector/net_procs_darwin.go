@@ -175,10 +175,6 @@ func parseNettopLine(line string) (NetProc, bool) {
 	}, true
 }
 
-// zeroTrafficThreshold is the bytes/sec below which a per-process network entry
-// is considered effectively idle and hidden from the network card list.
-const zeroTrafficThreshold = 0.1 // bytes per second
-
 func publishNetProcs(c *Collector, list []NetProc) {
 	list = filterNetProcList(list)
 	sort.Slice(list, func(i, j int) bool { return list[i].BytesPerSec > list[j].BytesPerSec })
@@ -195,16 +191,6 @@ func publishNetProcs(c *Collector, list []NetProc) {
 	case c.netProcUpdate <- struct{}{}:
 	default:
 	}
-}
-
-func filterNetProcList(list []NetProc) []NetProc {
-	filtered := make([]NetProc, 0, len(list))
-	for _, p := range list {
-		if p.UploadPerSec >= zeroTrafficThreshold || p.DownloadPerSec >= zeroTrafficThreshold {
-			filtered = append(filtered, p)
-		}
-	}
-	return filtered
 }
 
 func init() {

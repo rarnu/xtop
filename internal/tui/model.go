@@ -694,11 +694,11 @@ func (m *model) miniListHit(x, y int) (pid int32, name string, source cardKey, o
 	row := int(key) / gridCols
 	bodyY0 := row*m.cardH + 3 // top border + header + divider
 	bodyY := y - bodyY0
-	if bodyY < meta.startBodyY {
+	scroll := m.scrollBars[key].offset
+	if bodyY < meta.startBodyY-scroll {
 		return 0, "", -1, false
 	}
 
-	scroll := m.scrollBars[key].offset
 	rowIdx := bodyY - meta.startBodyY + scroll
 	if rowIdx < 0 || rowIdx >= len(meta.pids) {
 		return 0, "", -1, false
