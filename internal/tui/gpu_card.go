@@ -12,7 +12,7 @@ var gpuNameStyle = lipgloss.NewStyle().Foreground(colGreen).Bold(true)
 
 // gpuCard renders one block per GPU (power / memory / temperature / load), or a
 // graceful message when no GPU data source is available. (GPU.png)
-func gpuCard(g collector.GPUStat, hist []float64, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
+func gpuCard(g collector.GPUStat, hist []float64, innerWidth, innerHeight int, focused bool, scroll *cardScroll, selected selectedProc) string {
 	cw := contentWidth(innerWidth)
 	sparkW := clampInt(cw/2, 8, maxInt(cw-8, 8))
 	header := sparkline(sparkW, hist, colBlue)
@@ -48,10 +48,10 @@ func gpuCard(g collector.GPUStat, hist []float64, innerWidth, innerHeight int, f
 	} else {
 		rows := make([]miniRow, 0, len(g.TopProcs))
 		for _, p := range g.TopProcs {
-			rows = append(rows, miniRow{Value: fmtSize(p.MemBytes), Command: p.Command})
+			rows = append(rows, miniRow{Value: fmtSize(p.MemBytes), Command: p.Command, PID: p.PID})
 		}
 		lines = append(lines, miniHeaderLine(cw, "显存", rows))
-		lines = append(lines, miniRowLines(cw, rows)...)
+		lines = append(lines, miniRowLines(cw, rows, selected)...)
 	}
 
 	return renderCard(innerWidth, innerHeight, "◉", "GPU", header, lines, focused, scroll)

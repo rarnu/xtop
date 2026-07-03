@@ -12,7 +12,7 @@ import (
 // diskCard renders one block per mount: a fill "tank", read/write rates and
 // capacity, matching DISK.png. Below the mounts it appends the top processes by
 // disk read+write rate (feature 3); the whole card scrolls when it overflows.
-func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bool, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
+func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bool, innerWidth, innerHeight int, focused bool, scroll *cardScroll, selected selectedProc) string {
 	header := pillStyle.Render(fmtSizeF(float64(d.UsedBytes)) + " / " + fmtSizeF(float64(d.TotalBytes)))
 	cw := contentWidth(innerWidth)
 
@@ -68,11 +68,12 @@ func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bo
 				UpValue:   fmtRate(p.DiskReadPerSec),
 				DownValue: fmtRate(p.DiskWritePerSec),
 				Command:   p.Command,
+				PID:       p.PID,
 				TwoCol:    true,
 			})
 		}
 		lines = append(lines, miniTwoColHeaderLine(cw, rows, "读/s", "写/s"))
-		lines = append(lines, miniRowLines(cw, rows)...)
+		lines = append(lines, miniRowLines(cw, rows, selected)...)
 	}
 
 	return renderCard(innerWidth, innerHeight, "▦", "磁盘", header, lines, focused, scroll)

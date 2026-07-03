@@ -77,6 +77,9 @@ type model struct {
 	// process detail popup state (feature: click mini-list process)
 	detail detailState
 
+	// selected process row in a mini-list (highlight effect).
+	selected selectedProc
+
 	// geometry of each card's mini process list, rebuilt after renderDashboard.
 	miniMeta [6]miniListMeta
 }
@@ -106,12 +109,28 @@ type detailProc struct {
 	GPUMem              uint64
 }
 
+// delayedOpenDetailMsg is sent one frame after a mini-list click so the selected
+// row highlight is rendered before the detail popup appears.
+type delayedOpenDetailMsg struct {
+	pid    int32
+	name   string
+	source cardKey
+}
+
 // miniListMeta describes the clickable process list inside one dashboard card.
 type miniListMeta struct {
 	hasList    bool
 	startBodyY int // first list row relative to card body top (before scroll)
 	pids       []int32
 	names      []string
+}
+
+// selectedProc tracks which process row is currently highlighted in a card's
+// mini-list. It is set on click and cleared when the detail popup is closed.
+type selectedProc struct {
+	active bool
+	pid    int32
+	source cardKey
 }
 
 // New builds the root model. It implements tea.Model via a pointer receiver.
@@ -179,6 +198,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			return m, scheduleRecollect(msg.part)
 		}
+
+	case delayedOpenDetailMsg:
+		return m, m.openDetail(msg.pid, msg.name, msg.source)
 
 	case recollectMsg:
 		if msg.part == "net" && disableNet {
@@ -361,9 +383,13 @@ func (m *model) updateDashMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// Mini-list click opens the process detail popup.
+		// Mini-list click: highlight the row first, then open the detail popup on
+		// the next frame so the selection is rendered immediately.
 		if pid, name, source, ok := m.miniListHit(msg.X, msg.Y); ok {
-			return m, m.openDetail(pid, name, source)
+			m.selected = selectedProc{active: true, pid: pid, source: source}
+			return m, func() tea.Msg {
+				return delayedOpenDetailMsg{pid: pid, name: name, source: source}
+			}
 		}
 
 		if m.btnFound {
@@ -856,6 +882,7 @@ func (m *model) openDetail(pid int32, name string, source cardKey) tea.Cmd {
 func (m *model) closeDetail() {
 	m.detail.active = false
 	m.confirm.active = false
+	m.selected.active = false
 }
 
 func (m *model) buildDetail(pid int32, fallback string, source cardKey) detailProc {

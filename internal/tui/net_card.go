@@ -5,7 +5,7 @@ import "xtop/internal/collector"
 // netCard renders upload/download speed and cumulative traffic (fixed), plus a
 // scrollable list of the top processes by network throughput below it. The
 // summary stays pinned; only the process list scrolls (feature 2).
-func netCard(n collector.NetStat, downHist []float64, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
+func netCard(n collector.NetStat, downHist []float64, innerWidth, innerHeight int, focused bool, scroll *cardScroll, selected selectedProc) string {
 	cw := contentWidth(innerWidth)
 	sparkW := clampInt(cw/2, 8, maxInt(cw-8, 8))
 	header := sparkline(sparkW, downHist, colBlue)
@@ -41,11 +41,12 @@ func netCard(n collector.NetStat, downHist []float64, innerWidth, innerHeight in
 				UpValue:   fmtRate(p.UploadPerSec),
 				DownValue: fmtRate(p.DownloadPerSec),
 				Command:   p.Command,
+				PID:       p.PID,
 				TwoCol:    true,
 			})
 		}
 		fixed = []string{head, "", up, down, miniTwoColHeaderLine(cw, rows, "上传", "下载")}
-		list = miniRowLines(cw, rows)
+		list = miniRowLines(cw, rows, selected)
 	}
 	return renderCardSplit(innerWidth, innerHeight, "◍", "网络", header, fixed, list, focused, scroll)
 }

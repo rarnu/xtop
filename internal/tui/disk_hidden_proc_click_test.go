@@ -48,8 +48,12 @@ func TestDiskCardHiddenZeroRateProcNoClick(t *testing.T) {
 	for dy := 0; dy < 2; dy++ {
 		mCopy := *m
 		y := bodyY0 + diskStart + dy
-		m2, _ := mCopy.Update(tea.MouseMsg{X: 50, Y: y, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+		m2, cmd := mCopy.Update(tea.MouseMsg{X: 50, Y: y, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
 		mm := m2.(*model)
+		if cmd != nil {
+			m3, _ := mm.Update(cmd())
+			mm = m3.(*model)
+		}
 		if !mm.detail.active {
 			t.Fatalf("row dy=%d (y=%d) should open detail", dy, y)
 		}
@@ -63,8 +67,12 @@ func TestDiskCardHiddenZeroRateProcNoClick(t *testing.T) {
 	for dy := 2; dy < 10; dy++ {
 		mCopy := *m
 		y := bodyY0 + diskStart + dy
-		m2, _ := mCopy.Update(tea.MouseMsg{X: 50, Y: y, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+		m2, cmd := mCopy.Update(tea.MouseMsg{X: 50, Y: y, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
 		mm := m2.(*model)
+		if cmd != nil {
+			m3, _ := mm.Update(cmd())
+			mm = m3.(*model)
+		}
 		if mm.detail.active {
 			t.Fatalf("blank area dy=%d (y=%d) should not open detail, got pid=%d name=%q", dy, y, mm.detail.proc.PID, mm.detail.proc.Command)
 		}

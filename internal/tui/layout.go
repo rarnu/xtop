@@ -53,7 +53,7 @@ func (m *model) renderDashboard() []string {
 	if disableNet {
 		netCardStr = disabledCard(w, h, "◍", "网络", "已停用")
 	} else {
-		netCardStr = netCard(m.snap.Net, m.downHist, w, h, false, &m.scrollBars[cardNet])
+		netCardStr = netCard(m.snap.Net, m.downHist, w, h, false, &m.scrollBars[cardNet], m.selected)
 	}
 	if disableProc {
 		procCardStr = disabledCard(w, h, "☰", "进程", "已停用")
@@ -63,9 +63,9 @@ func (m *model) renderDashboard() []string {
 
 	cards := []string{
 		cpuCard(m.snap.CPU, m.cpuHist, w, h, false, &m.scrollBars[cardCPU]),
-		diskCard(m.snap.Disk, m.snap.Proc.TopDisk, m.snap.Proc.DiskSupported, w, h, false, &m.scrollBars[cardDisk]),
-		gpuCard(m.snap.GPU, m.gpuHist, w, h, false, &m.scrollBars[cardGPU]),
-		memCard(m.snap.Mem, m.snap.Proc.TopMem, w, h, false, &m.scrollBars[cardMem]),
+		diskCard(m.snap.Disk, m.snap.Proc.TopDisk, m.snap.Proc.DiskSupported, w, h, false, &m.scrollBars[cardDisk], m.selected),
+		gpuCard(m.snap.GPU, m.gpuHist, w, h, false, &m.scrollBars[cardGPU], m.selected),
+		memCard(m.snap.Mem, m.snap.Proc.TopMem, w, h, false, &m.scrollBars[cardMem], m.selected),
 		netCardStr,
 		procCardStr,
 	}

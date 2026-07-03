@@ -4,14 +4,20 @@ import "github.com/charmbracelet/lipgloss"
 
 // miniRow is one entry in a card's process mini-list: a formatted metric value
 // and the process command. The optional Up/Down fields are used by the network
-// card to show per-process traffic in both directions.
+// card to show per-process traffic in both directions. PID is used to apply a
+// selection highlight when the row has been clicked.
 type miniRow struct {
+	PID       int32
 	Value     string
 	UpValue   string
 	DownValue string
 	Command   string
 	TwoCol    bool // if true, render UpValue and DownValue side by side
 }
+
+var selectedRowStyle = lipgloss.NewStyle().
+	Background(lipgloss.Color("238")).
+	Foreground(colGreenHi)
 
 // miniValW returns the width of the value column for a process mini-list, sized
 // to fit the header text and the widest value in rows, capped at half the card.
@@ -41,7 +47,9 @@ func miniHeaderLine(cw int, valueHead string, rows []miniRow) string {
 }
 
 // miniRowLines renders the data rows of a process mini-list at content width cw.
-func miniRowLines(cw int, rows []miniRow) []string {
+// If selected matches a row's PID, that row is rendered with a highlighted
+// background so the user can see which process was clicked.
+func miniRowLines(cw int, rows []miniRow, selected selectedProc) []string {
 	if len(rows) == 0 {
 		return []string{faintStyle.Render("无进程数据")}
 	}
@@ -62,10 +70,13 @@ func miniRowLines(cw int, rows []miniRow) []string {
 		cmdW := maxInt(cw-upW-downW-2, 1)
 		out := make([]string, 0, len(rows))
 		for _, r := range rows {
-			out = append(out,
-				valueStyle.Render(fitCell(r.UpValue, upW, false))+" "+
-					valueStyle.Render(fitCell(r.DownValue, downW, false))+" "+
-					textStyle.Render(fitCell(r.Command, cmdW, false)))
+			line := valueStyle.Render(fitCell(r.UpValue, upW, false)) + " " +
+				valueStyle.Render(fitCell(r.DownValue, downW, false)) + " " +
+				textStyle.Render(fitCell(r.Command, cmdW, false))
+			if selected.active && selected.pid == r.PID {
+				line = selectedRowStyle.Render(padRow(stripANSI(line), cw))
+			}
+			out = append(out, line)
 		}
 		return out
 	}
@@ -76,9 +87,12 @@ func miniRowLines(cw int, rows []miniRow) []string {
 	cmdW := maxInt(cw-valW-1, 1)
 	out := make([]string, 0, len(rows))
 	for _, r := range rows {
-		out = append(out,
-			valueStyle.Render(fitCell(r.Value, valW, true))+" "+
-				textStyle.Render(fitCell(r.Command, cmdW, false)))
+		line := valueStyle.Render(fitCell(r.Value, valW, true)) + " " +
+			textStyle.Render(fitCell(r.Command, cmdW, false))
+		if selected.active && selected.pid == r.PID {
+			line = selectedRowStyle.Render(padRow(stripANSI(line), cw))
+		}
+		out = append(out, line)
 	}
 	return out
 }

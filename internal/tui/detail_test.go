@@ -23,8 +23,12 @@ func TestDetailDialogSizeAndColors(t *testing.T) {
 	})
 	m.recompute()
 
-	m2, _ := m.Update(tea.MouseMsg{X: 10, Y: 27, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
+	m2, cmd := m.Update(tea.MouseMsg{X: 10, Y: 27, Button: tea.MouseButtonLeft, Action: tea.MouseActionPress})
 	mm := m2.(*model)
+	if cmd != nil {
+		m3, _ := mm.Update(cmd())
+		mm = m3.(*model)
+	}
 	v := mm.View()
 
 	lines := strings.Split(v, "\n")

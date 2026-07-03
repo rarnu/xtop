@@ -5,7 +5,7 @@ import "xtop/internal/collector"
 // memCard renders a used/cached/free segmented bar with a legend (fixed), plus a
 // scrollable list of the top processes by resident memory below it. The summary
 // stays pinned; only the process list scrolls (feature 1).
-func memCard(m collector.MemStat, procs []collector.ProcInfo, innerWidth, innerHeight int, focused bool, scroll *cardScroll) string {
+func memCard(m collector.MemStat, procs []collector.ProcInfo, innerWidth, innerHeight int, focused bool, scroll *cardScroll, selected selectedProc) string {
 	header := pillStyle.Render(fmtSize(m.Total))
 	cw := contentWidth(innerWidth)
 
@@ -34,10 +34,10 @@ func memCard(m collector.MemStat, procs []collector.ProcInfo, innerWidth, innerH
 
 	rows := make([]miniRow, 0, len(procs))
 	for _, p := range procs {
-		rows = append(rows, miniRow{Value: fmtSize(p.MemRSS), Command: p.Command})
+		rows = append(rows, miniRow{Value: fmtSize(p.MemRSS), Command: p.Command, PID: p.PID})
 	}
 
 	fixed := []string{bar, "", legend, values, miniHeaderLine(cw, "内存", rows)}
-	list := miniRowLines(cw, rows)
+	list := miniRowLines(cw, rows, selected)
 	return renderCardSplit(innerWidth, innerHeight, "▤", "内存", header, fixed, list, focused, scroll)
 }
