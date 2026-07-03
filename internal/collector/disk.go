@@ -62,11 +62,18 @@ func (c *Collector) collectDisk(dt float64) DiskStat {
 			UsedPercent: usage.UsedPercent,
 		}
 
-		if dev := matchIODevice(p.Device, rates); dev != "" {
-			r := rates[dev]
-			if dt > 0 {
+		if dt > 0 {
+			if dev := matchIODevice(p.Device, rates); dev != "" {
+				r := rates[dev]
 				m.ReadPerSec = float64(r.read) / dt
 				m.WritePerSec = float64(r.write) / dt
+			} else if fallback := fallbackSystemIO(rates); fallback.read > 0 || fallback.write > 0 {
+				// On macOS gopsutil may report IO counters for physical disks that do
+				// not share a prefix with the synthetic APFS volume device names (e.g.
+				// disk0 vs /dev/disk3s1s1). Fall back to the system-wide IO rate so the
+				// disk card still shows meaningful activity.
+				m.ReadPerSec = float64(fallback.read) / dt
+				m.WritePerSec = float64(fallback.write) / dt
 			}
 		}
 
@@ -114,6 +121,25 @@ func matchIODevice(device string, rates map[string]ioCounter) string {
 	for name := range rates {
 		if strings.HasPrefix(base, name) && len(name) > len(best) {
 			best = name
+		}
+	}
+	return best
+}
+
+// fallbackSystemIO returns the IO rate of the busiest single device. It is used
+// as a last resort when a partition's device name cannot be matched to a
+// specific IO counter key. On macOS APFS volumes often report synthetic device
+// names (e.g. disk3s1s1) that do not share a prefix with the physical disk
+// counter (e.g. disk0). Using the busiest device avoids attributing the sum of
+// all devices (including tiny simulator/external disks) to every mount.
+func fallbackSystemIO(rates map[string]ioCounter) ioCounter {
+	var best ioCounter
+	var bestTotal uint64
+	for _, r := range rates {
+		total := r.read + r.write
+		if total > bestTotal {
+			bestTotal = total
+			best = r
 		}
 	}
 	return best

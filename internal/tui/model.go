@@ -140,6 +140,19 @@ func New() *model {
 		sortCol: sortCPU,
 		sortAsc: false,
 	}
+
+	// Pre-fill process lists from the on-disk cache so the memory/network/disk
+	// cards show data immediately on startup.
+	if pc, err := loadCache(); err == nil {
+		m.snap.Proc.TopMem = append([]collector.ProcInfo(nil), pc.MemProcs...)
+		m.snap.Net.TopProcs = append([]collector.NetProc(nil), pc.NetProcs...)
+		m.snap.Proc.TopDisk = append([]collector.ProcInfo(nil), pc.DiskProcs...)
+		if len(pc.MemProcs) > 0 || len(pc.NetProcs) > 0 || len(pc.DiskProcs) > 0 {
+			m.snap.Proc.DiskSupported = len(pc.DiskProcs) > 0
+			m.snap.Net.ProcsSupported = len(pc.NetProcs) > 0
+		}
+	}
+
 	if !disableProc {
 		m.col.StartProcLoop()
 	}
@@ -327,6 +340,7 @@ func (m *model) updateDashKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "q", "ctrl+c":
 		m.stopLoops()
+		_ = saveCache(m.snap)
 		return m, tea.Quit
 	case "p", "enter":
 		return m, m.openModal()
@@ -715,6 +729,11 @@ func (m *model) mergeSnap(s collector.Snapshot) {
 	}
 	if len(s.Disk.Mounts) > 0 {
 		m.snap.Disk = s.Disk
+		// If the collector provided an immediate fallback for disk process data,
+		// merge it into Proc.TopDisk so the disk card can render it right away.
+		if len(s.Disk.TopDiskProcs) > 0 && len(m.snap.Proc.TopDisk) == 0 {
+			m.snap.Proc.TopDisk = s.Disk.TopDiskProcs
+		}
 	}
 	if s.Net.TotalUpload > 0 || s.Net.TotalDownload > 0 || len(s.Net.TopProcs) > 0 {
 		if s.Net.TotalUpload > 0 || s.Net.TotalDownload > 0 {

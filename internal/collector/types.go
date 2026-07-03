@@ -31,9 +31,10 @@ type MemStat struct {
 
 // DiskStat aggregates per-mount usage and IO throughput.
 type DiskStat struct {
-	Mounts     []DiskMount
-	TotalBytes uint64 // sum of all mount capacities
-	UsedBytes  uint64 // sum of all mount used bytes
+	Mounts       []DiskMount
+	TotalBytes   uint64 // sum of all mount capacities
+	UsedBytes    uint64 // sum of all mount used bytes
+	TopDiskProcs []ProcInfo // fallback top disk procs for the first sample
 }
 
 // DiskMount describes a single mounted filesystem.

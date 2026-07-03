@@ -3,6 +3,7 @@ package collector
 import (
 	"context"
 	"os/user"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -202,8 +203,17 @@ func (c *Collector) CollectCPU() CPUStat { return collectCPU() }
 // CollectMem returns physical memory usage.
 func (c *Collector) CollectMem() MemStat { return collectMem() }
 
-// CollectDisk returns per-mount usage and IO rates.
-func (c *Collector) CollectDisk() DiskStat { return c.collectDisk(dtSince(&c.prevDiskTime)) }
+// CollectDisk returns per-mount usage and IO rates. On the very first call it
+// also fills in per-process disk IO by cumulative bytes so the disk card has
+// something to show immediately; real per-second rates replace this on the next
+// refresh.
+func (c *Collector) CollectDisk() DiskStat {
+	d := c.collectDisk(dtSince(&c.prevDiskTime))
+	if procDiskSupported && len(c.ProcCache().TopDisk) == 0 {
+		d.TopDiskProcs = c.collectDiskProcsOnce()
+	}
+	return d
+}
 
 // CollectNet returns aggregate network throughput plus, where supported, the
 // top processes by per-process traffic. Aggregate counters are collected on
@@ -275,4 +285,45 @@ func collectCPU() CPUStat {
 		Overall: sum / float64(len(perCore)),
 		PerCore: perCore,
 	}
+}
+
+// collectDiskProcsOnce walks all processes once and returns the top-N processes
+// by cumulative disk read+write bytes. It is used only on the very first disk
+// collection so the disk card has process data to show immediately, before the
+// background proc loop has had time to compute per-second rates.
+func (c *Collector) collectDiskProcsOnce() []ProcInfo {
+	procs, err := process.Processes()
+	if err != nil {
+		return nil
+	}
+
+	list := make([]ProcInfo, 0, len(procs))
+	for _, p := range procs {
+		cmd := commandOf(p)
+		if cmd == "?" || shouldHideProc(cmd) {
+			continue
+		}
+		var r, w uint64
+		if v, ok := procDiskReadBytes(p); ok {
+			r = v
+		}
+		if v, ok := procDiskWriteBytes(p); ok {
+			w = v
+		}
+		if r == 0 && w == 0 {
+			continue
+		}
+		list = append(list, ProcInfo{
+			PID:             p.Pid,
+			Command:         cmd,
+			DiskReadPerSec:  float64(r),
+			DiskWritePerSec: float64(w),
+		})
+	}
+
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].DiskReadPerSec+list[i].DiskWritePerSec >
+			list[j].DiskReadPerSec+list[j].DiskWritePerSec
+	})
+	return topN(list, topProcCount)
 }

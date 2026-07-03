@@ -27,15 +27,31 @@ import (
 // a materially faster refresh.
 const nettopSampleInterval = 5 * time.Second
 
+// nettopFastInterval is used for the very first nettop invocation so the UI
+// gets its first per-process network sample as quickly as possible. The first
+// sample is still skipped (cumulative), so the first useful sample arrives after
+// nettopFastInterval seconds.
+const nettopFastInterval = 1 * time.Second
+
 func collectNetProcsLoop(ctx context.Context, c *Collector) {
 	const restartDelay = 5 * time.Second
+
+	// Fast first frame: use a 1-second interval so the UI gets data quickly.
+	runOneNettop(ctx, c, int(nettopFastInterval.Seconds()))
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
+
+	// Steady state: longer interval to keep CPU usage reasonable.
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
-		runOneNettop(ctx, c)
+		runOneNettop(ctx, c, int(nettopSampleInterval.Seconds()))
 		select {
 		case <-ctx.Done():
 			return
@@ -44,15 +60,15 @@ func collectNetProcsLoop(ctx context.Context, c *Collector) {
 	}
 }
 
-func runOneNettop(ctx context.Context, c *Collector) {
+func runOneNettop(ctx context.Context, c *Collector, intervalSec int) {
 	// -P: per-process aggregate
 	// -x: raw numeric counts (no MiB/KiB suffixes)
 	// -d: delta mode (values are per-interval changes)
-	// -s 3: 3 second update interval (nettop is very CPU-heavy, so avoid 1s)
+	// -s N: N second update interval
 	// -l 0: infinite logging-mode samples
 	// -J: keep only bytes_in and bytes_out
 	cmd := detach(exec.CommandContext(ctx, "nettop",
-		"-P", "-x", "-d", "-s", strconv.Itoa(int(nettopSampleInterval.Seconds())), "-l", "0",
+		"-P", "-x", "-d", "-s", strconv.Itoa(intervalSec), "-l", "0",
 		"-J", "bytes_in,bytes_out",
 	))
 

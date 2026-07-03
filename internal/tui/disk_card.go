@@ -38,12 +38,12 @@ func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bo
 		textLines := []string{
 			twoCol(
 				labelStyle.Render("读/s")+"\n"+valueStyle.Render(fmtBytesF(m.ReadPerSec)),
-				labelStyle.Render("已用")+"\n"+valueStyle.Render(fmt.Sprintf("%.0f%%", m.UsedPercent)),
+				labelStyle.Render("已用")+"\n"+valueStyle.Render(fmtSize(m.Used)+fmt.Sprintf("(%.0f%%)", m.UsedPercent)),
 				half, tw,
 			),
 			twoCol(
 				labelStyle.Render("写/s")+"\n"+valueStyle.Render(fmtBytesF(m.WritePerSec)),
-				labelStyle.Render("可用")+"\n"+valueStyle.Render(fmtSize(m.Free)),
+				labelStyle.Render("可用")+"\n"+valueStyle.Render(fmtSize(m.Free)+" / "+fmtSize(m.Total)),
 				half, tw,
 			),
 		}
