@@ -137,8 +137,8 @@ type selectedProc struct {
 func New() *model {
 	m := &model{
 		col:     collector.New(),
-		sortCol: sortCPU,
-		sortAsc: false,
+		sortCol: sortPID,
+		sortAsc: true,
 	}
 
 	// Pre-fill process lists from the on-disk cache so the memory/network/disk
