@@ -62,6 +62,41 @@ GOOS=darwin GOARCH=arm64 go build ./cmd/xtop
 
 使用鼠标滚轮滚动卡片，拖拽滚动条。
 
+## 命令行模式
+
+当带有任何参数启动时，`xtop` 会以普通命令行模式执行，而不是启动 TUI。
+
+```bash
+./xtop [参数]
+```
+
+| 参数 | 说明 |
+|------|------|
+| `--help` | 显示帮助信息 |
+| `--version` | 显示版本信息 |
+| `--all` | 输出所有信息（CPU、内存、磁盘、GPU、网络、进程） |
+| `--cpu` | 输出 CPU 使用情况 |
+| `--mem` | 输出内存使用情况 |
+| `--disk` | 输出磁盘使用情况 |
+| `--gpu` | 输出 GPU 使用情况 |
+| `--net` | 输出网络使用情况 |
+| `--proc` | 输出当前进程情况 |
+| `--json` | 以 JSON 格式输出（默认普通文本） |
+| `--stream <x>` | 每隔 x 秒输出一次数据流（x 必须是大于等于 1 的整数） |
+
+如果没有指定内容参数（如 `--cpu`、`--mem` 等），则默认启用 `--all`。例如 `./xtop --json` 等价于 `./xtop --all --json`。
+
+常用组合：
+
+```bash
+./xtop --all --json --stream 5     # 输出所有信息，JSON 格式，每 5 秒一次
+./xtop --cpu --mem                 # 输出 CPU 和内存，普通文本
+./xtop --cpu --mem --json          # 输出 CPU 和内存，JSON 格式
+./xtop --cpu --mem --json --stream 5
+./xtop --cpu --mem --json --stream 5 --proc
+./xtop --cpu --mem --proc --gpu
+```
+
 ## 语言文件
 
 翻译文件按以下优先级加载：

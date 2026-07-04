@@ -4,6 +4,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+
+	"xtop/internal/version"
 )
 
 // aboutInfo describes the metadata shown in the about dialog.
@@ -20,7 +22,7 @@ type aboutInfo struct {
 // at link time with -ldflags if desired.
 func defaultAbout() aboutInfo {
 	return aboutInfo{
-		Version:     "0.1.0",
+		Version:     version.Version,
 		GitHub:      "github.com/rarnu/xtop",
 		License:     "MIT",
 		GoVersion:   "",

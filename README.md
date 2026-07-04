@@ -62,6 +62,41 @@ GOOS=darwin GOARCH=arm64 go build ./cmd/xtop
 
 Use the mouse wheel to scroll cards and drag scrollbars.
 
+## Command-line mode
+
+When started with any flag, `xtop` runs in plain command-line mode instead of launching the TUI.
+
+```bash
+./xtop [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--help` | Show help information |
+| `--version` | Show version information |
+| `--all` | Output all information (CPU, memory, disk, GPU, network, processes) |
+| `--cpu` | Output CPU usage |
+| `--mem` | Output memory usage |
+| `--disk` | Output disk usage |
+| `--gpu` | Output GPU usage |
+| `--net` | Output network usage |
+| `--proc` | Output current process information |
+| `--json` | Output in JSON format (default is plain text) |
+| `--stream <x>` | Stream output every `x` seconds (`x` must be an integer ≥ 1) |
+
+If no content flag (`--cpu`, `--mem`, etc.) is specified, `--all` is assumed. For example, `./xtop --json` is equivalent to `./xtop --all --json`.
+
+Examples:
+
+```bash
+./xtop --all --json --stream 5     # all info, JSON, every 5 seconds
+./xtop --cpu --mem                 # CPU and memory, plain text
+./xtop --cpu --mem --json          # CPU and memory, JSON
+./xtop --cpu --mem --json --stream 5
+./xtop --cpu --mem --json --stream 5 --proc
+./xtop --cpu --mem --proc --gpu
+```
+
 ## Language files
 
 Translation files are loaded from (in priority order):
