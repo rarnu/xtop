@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 
@@ -10,8 +11,8 @@ import (
 
 var gpuNameStyle = lipgloss.NewStyle().Foreground(colGreen).Bold(true)
 
-// gpuCard renders one block per GPU (power / memory / temperature / load), or a
-// graceful message when no GPU data source is available. (GPU.png)
+// gpuCard renders one block per GPU (power / VRAM / load), or a graceful message
+// when no GPU data source is available. (GPU.png)
 func gpuCard(g collector.GPUStat, hist []float64, innerWidth, innerHeight int, focused bool, scroll *cardScroll, selected selectedProc) string {
 	cw := contentWidth(innerWidth)
 	sparkW := clampInt(cw/2, 8, maxInt(cw-8, 8))
@@ -31,13 +32,13 @@ func gpuCard(g collector.GPUStat, hist []float64, innerWidth, innerHeight int, f
 			lines = append(lines, "")
 		}
 		lines = append(lines, gpuNameStyle.Render(truncPlain(c.Name, cw)))
-		lines = append(lines, joinLR(labelStyle.Render(T("label.power")), valueStyle.Render(gpuPower(c.PowerW)), cw))
-		lines = append(lines, joinLR(labelStyle.Render(T("label.memory")), valueStyle.Render(gpuMem(c)), cw))
+		lines = append(lines, joinLR(labelStyle.Render(T("label.power")), valueStyle.Render(gpuPowerTemp(c)), cw))
+		memPct := -1.0
 		if c.MemTotal > 0 {
-			lines = append(lines, blockBar(cw, float64(c.MemUsed)/float64(c.MemTotal)*100))
+			memPct = float64(c.MemUsed) / float64(c.MemTotal) * 100
 		}
-		lines = append(lines, gaugeRow(T("label.temperature"), c.TempC, gpuTemp(c.TempC), cw))
-		lines = append(lines, gaugeRow(T("label.load"), c.LoadPct, gpuLoad(c.LoadPct), cw))
+		lines = append(lines, gaugeRow(T("label.gpu_mem"), memPct, gpuMem(c), cw, 15))
+		lines = append(lines, gaugeRow(T("label.load"), c.LoadPct, gpuLoad(c.LoadPct), cw, 15))
 	}
 
 	// Process list (top by GPU memory) appended below the card stats.
@@ -59,23 +60,30 @@ func gpuCard(g collector.GPUStat, hist []float64, innerWidth, innerHeight int, f
 
 // gaugeRow renders: label + gauge + right-aligned value. gaugePct <0 draws an
 // empty gauge (value already shows N/A).
-func gaugeRow(label string, gaugePct float64, value string, innerWidth int) string {
+func gaugeRow(label string, gaugePct float64, value string, innerWidth, valW int) string {
 	labelW := 5
-	valW := 7
-	gw := maxInt(innerWidth-labelW-1-valW, 2)
+	gap := 2 // two-cell spacing between gauge and value
+	gw := maxInt(innerWidth-labelW-1-gap-valW, 2)
 	p := gaugePct
 	if p < 0 {
 		p = 0
 	}
 	return labelStyle.Render(fitCell(label, labelW, false)) + " " +
-		lineGauge(gw, p) + valueStyle.Render(fitCell(value, valW, true))
+		lineGauge(gw, p) + strings.Repeat(" ", gap) + valueStyle.Render(fitCell(value, valW, true))
 }
 
-func gpuPower(w float64) string {
-	if w < 0 {
+func gpuPowerTemp(c collector.GPUCard) string {
+	var parts []string
+	if c.PowerW >= 0 {
+		parts = append(parts, fmt.Sprintf("%.0f W", c.PowerW))
+	}
+	if c.TempC >= 0 {
+		parts = append(parts, fmt.Sprintf("(%.0f ℃)", c.TempC))
+	}
+	if len(parts) == 0 {
 		return T("na")
 	}
-	return fmt.Sprintf("%.0f W", w)
+	return strings.Join(parts, "")
 }
 
 func gpuMem(c collector.GPUCard) string {
@@ -86,13 +94,6 @@ func gpuMem(c collector.GPUCard) string {
 		return "N/A"
 	}
 	return fmtSize(c.MemUsed) + " / " + fmtSize(c.MemTotal)
-}
-
-func gpuTemp(t float64) string {
-	if t < 0 {
-		return T("na")
-	}
-	return fmt.Sprintf("%.0f °C", t)
 }
 
 func gpuLoad(l float64) string {

@@ -639,14 +639,11 @@ func (m *model) rebuildMiniListMeta() {
 
 	// GPU card: list starts after the per-GPU stats, a blank line and header.
 	gpuStart := 0
-	for i, c := range m.snap.GPU.Cards {
+	for i := range m.snap.GPU.Cards {
 		if i > 0 {
 			gpuStart++ // blank separator between GPUs
 		}
-		gpuStart += 5 // name, power, mem, temp, load
-		if c.MemTotal > 0 {
-			gpuStart++ // memory bar
-		}
+		gpuStart += 4 // name, power, vram gauge, load gauge
 	}
 	gpuStart += 2 // blank + mini-list header
 	m.miniMeta[cardGPU] = miniListMeta{
