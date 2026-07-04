@@ -7,10 +7,7 @@ import (
 	"xtop/internal/collector"
 )
 
-const (
-	openProcLabel  = "proc.open_manager"
-	openProcNeedle = "打开进程管理"
-)
+const openProcLabel = "proc.open_manager"
 
 // procCard renders the top-N processes by CPU plus the button that opens the
 // full process manager (feature 6).

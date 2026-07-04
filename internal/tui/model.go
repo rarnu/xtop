@@ -590,7 +590,8 @@ func (m *model) updateModalMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 func (m *model) recompute() {
 	m.dashLines = m.renderDashboard()
 	m.rebuildMiniListMeta()
-	if line, x0, x1, ok := findText(m.dashLines, "打开进程管理"); ok {
+	btnText := T(openProcLabel)
+	if line, x0, x1, ok := findText(m.dashLines, btnText); ok {
 		m.btnLine, m.btnX0, m.btnX1, m.btnFound = line, x0, x1, true
 	} else {
 		m.btnFound = false
