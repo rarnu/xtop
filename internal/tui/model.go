@@ -81,6 +81,10 @@ type model struct {
 	// about dialog state
 	about aboutState
 
+	// theme picker dialog state
+	themeDialog    themeDialogState
+	themeDialogBox dialogBox
+
 	// selected process row in a mini-list (highlight effect).
 	selected selectedProc
 
@@ -150,6 +154,9 @@ type selectedProc struct {
 
 // New builds the root model. It implements tea.Model via a pointer receiver.
 func New() *model {
+	cfg := LoadConfig()
+	SetTheme(cfg.Theme)
+
 	m := &model{
 		col:     collector.New(),
 		sortCol: sortPID,
@@ -244,6 +251,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tickCmd()
 
 	case tea.KeyMsg:
+		if m.themeDialog.active {
+			return m.updateThemeDialogKey(msg)
+		}
 		if m.about.active {
 			if msg.String() == "a" || msg.String() == "esc" || msg.String() == "enter" {
 				m.about.active = false
@@ -260,6 +270,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateDashKey(msg)
 
 	case tea.MouseMsg:
+		if m.themeDialog.active {
+			return m.updateThemeDialogMouse(msg)
+		}
 		if m.about.active {
 			return m.updateAboutMouse(msg)
 		}
@@ -352,6 +365,8 @@ func (m *model) View() string {
 	base := strings.Join(lines, "\n") + "\n" + m.dashFooter()
 
 	switch {
+	case m.themeDialog.active:
+		return overlayThemeDialog(m, base)
 	case m.detail.active:
 		return overlayDetailModal(m, base)
 	case m.about.active:
@@ -380,6 +395,13 @@ func (m *model) updateDashKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.openModal()
 	case "a":
 		m.about.active = true
+		return m, nil
+	case "t":
+		m.themeDialog.active = true
+		m.themeDialog.selected = 0
+		if CurrentThemeName() == ThemeLight {
+			m.themeDialog.selected = 1
+		}
 		return m, nil
 	}
 	return m, nil

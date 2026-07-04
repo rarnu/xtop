@@ -3,27 +3,19 @@ package tui
 import "github.com/charmbracelet/lipgloss"
 
 // Matrix-green palette.
-const (
-	colGreen    = lipgloss.Color("#33FF66") // primary
-	colGreenHi  = lipgloss.Color("#7CFFA6") // bright accents / titles
-	colGreenDim = lipgloss.Color("#1F7A3D") // borders, dim fills
-	colText     = lipgloss.Color("#C8E6D0") // body text
-	colFaint    = lipgloss.Color("#6C8A76") // labels / secondary text
-	colGray     = lipgloss.Color("#4A4A4A") // empty track
-	colGrayLite = lipgloss.Color("#8A8A8A") // cache legend
-	// colTrack is the dim "empty" fill behind meters, sparklines and the
-	// scrollbar. It must be a *visibly* dark gray, not near-black: a near-black
-	// glyph on a dark terminal background disappears, leaving only each thin
-	// │/─ character's anti-alias halo, which reads as faint white lines on some
-	// displays (DPI / font-smoothing dependent). Using an ANSI-256 gray (238)
-	// keeps the glyph body visible as gray and avoids that artifact; it also
-	// degrades to a safe ANSI "bright black" (90) rather than a truecolor escape
-	// on limited terminals.
-	colTrack = lipgloss.Color("238") // very dark fill track
-	colRed      = lipgloss.Color("#FF5555")
-	colYellow   = lipgloss.Color("#E6DB74")
-	colOrange   = lipgloss.Color("#E0A54B")
-	colBlue     = lipgloss.Color("#6D8CFF") // sparkline secondary (upload/idle line)
+var (
+	colGreen    lipgloss.Color = lipgloss.Color("#33FF66")
+	colGreenHi  lipgloss.Color = lipgloss.Color("#7CFFA6")
+	colGreenDim lipgloss.Color = lipgloss.Color("#1F7A3D")
+	colText     lipgloss.Color = lipgloss.Color("#C8E6D0")
+	colFaint    lipgloss.Color = lipgloss.Color("#6C8A76")
+	colGray     lipgloss.Color = lipgloss.Color("#4A4A4A")
+	colGrayLite lipgloss.Color = lipgloss.Color("#8A8A8A")
+	colTrack    lipgloss.Color = lipgloss.Color("238")
+	colRed      lipgloss.Color = lipgloss.Color("#FF5555")
+	colYellow   lipgloss.Color = lipgloss.Color("#E6DB74")
+	colOrange   lipgloss.Color = lipgloss.Color("#E0A54B")
+	colBlue     lipgloss.Color = lipgloss.Color("#6D8CFF")
 )
 
 var (
