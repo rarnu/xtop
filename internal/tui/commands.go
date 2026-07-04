@@ -8,6 +8,18 @@ import (
 	"xtop/internal/collector"
 )
 
+// tickMsg triggers a once-per-second UI refresh so the footer clock updates.
+type tickMsg struct{}
+
+const tickInterval = 1 * time.Second
+
+// tickCmd sleeps for one second and then returns tickMsg. Update() returns this
+// command again, creating a perpetual one-second ticker without overlapping
+// goroutines.
+func tickCmd() tea.Cmd {
+	return tea.Tick(tickInterval, func(time.Time) tea.Msg { return tickMsg{} })
+}
+
 // collectInterval is how often each subsystem is refreshed (spec: every 5 seconds).
 const collectInterval = 5 * time.Second
 

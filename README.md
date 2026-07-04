@@ -6,6 +6,8 @@
 
 `xtop` is a Matrix-green terminal system monitor inspired by `top`. It displays CPU, memory, disk, GPU, network and process information in a compact 2x3 card dashboard, with mouse support and a built-in process manager.
 
+![](screenshot/screenshot1.png)
+
 ## Features
 
 - **2x3 card dashboard**: CPU, Disk, GPU on the first row; Memory, Network, Process on the second row.

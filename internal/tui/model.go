@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -64,15 +65,15 @@ type model struct {
 	confirm confirmState
 
 	// scrollbar drag state
-	dragScroll    *cardScroll // nil when not dragging
-	dragCard      cardKey     // card being scrolled
-	dragStartY    int         // terminal y where drag started
-	dragStartOff  int         // scroll offset when drag started
-	dragThumbY0   int         // scrollbar thumb top at drag start
-	dragThumbY1   int         // scrollbar thumb bottom at drag start
-	dragBodyY0    int         // card body top y in terminal
-	dragBodyH     int         // card body height in terminal
-	dragContentH  int         // total content lines for the dragged card
+	dragScroll   *cardScroll // nil when not dragging
+	dragCard     cardKey     // card being scrolled
+	dragStartY   int         // terminal y where drag started
+	dragStartOff int         // scroll offset when drag started
+	dragThumbY0  int         // scrollbar thumb top at drag start
+	dragThumbY1  int         // scrollbar thumb bottom at drag start
+	dragBodyY0   int         // card body top y in terminal
+	dragBodyH    int         // card body height in terminal
+	dragContentH int         // total content lines for the dragged card
 
 	// process detail popup state (feature: click mini-list process)
 	detail detailState
@@ -94,9 +95,9 @@ type detailState struct {
 	source cardKey
 
 	// button hit boxes in terminal coordinates, set by renderDetailModal.
-	btnY              int
-	killX0, killX1    int
-	forceX0, forceX1  int
+	btnY             int
+	killX0, killX1   int
+	forceX0, forceX1 int
 }
 
 // aboutState holds the about dialog.
@@ -105,9 +106,9 @@ type aboutState struct {
 	info   aboutInfo
 
 	// button hit boxes in terminal coordinates, set by overlayAboutModal.
-	btnY    int
-	okX0    int
-	okX1    int
+	btnY int
+	okX0 int
+	okX1 int
 }
 
 // detailProc is the information shown in the detail popup.
@@ -186,6 +187,7 @@ func (m *model) Init() tea.Cmd {
 		collectMem(m.col),
 		collectDisk(m.col),
 		collectGPU(m.col),
+		tickCmd(),
 	}
 	if !disableNet {
 		cmds = append(cmds, collectNet(m.col), netProcUpdateCmd(m.col))
@@ -235,6 +237,11 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, collectPart(m.col, msg.part)
+
+	case tickMsg:
+		m.snap.Time = time.Now()
+		m.recompute()
+		return m, tickCmd()
 
 	case tea.KeyMsg:
 		if m.about.active {
@@ -779,7 +786,9 @@ func (m *model) mergeSnap(s collector.Snapshot) {
 	if s.Proc.All != nil || len(s.Proc.Top) > 0 || len(s.Proc.TopMem) > 0 || len(s.Proc.TopDisk) > 0 {
 		m.snap.Proc = s.Proc
 	}
-	m.snap.Time = s.Time
+	if !s.Time.IsZero() {
+		m.snap.Time = s.Time
+	}
 }
 
 func (m *model) pushHistoryFor(part string) {
