@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"xtop/internal/cli"
+	"xtop/internal/mcp"
 	"xtop/internal/tui"
 )
 
@@ -26,7 +27,16 @@ func main() {
 		return
 	}
 
-	// With arguments: run command-line mode.
+	// MCP server subcommand.
+	if os.Args[1] == "mcp" {
+		if err := mcp.Run(os.Args[2:]); err != nil {
+			fmt.Fprintln(os.Stderr, "xtop:", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	// With other arguments: run command-line mode.
 	cfg, err := cli.ParseArgs(os.Args[1:])
 	if err != nil {
 		cli.PrintError(err, true)

@@ -62,6 +62,56 @@ GOOS=darwin GOARCH=arm64 go build ./cmd/xtop
 
 Use the mouse wheel to scroll cards and drag scrollbars.
 
+## MCP Server
+
+`xtop` can run as a [Model Context Protocol](https://modelcontextprotocol.io/) server so AI assistants can query live system monitoring data.
+
+Start the server:
+
+```bash
+xtop mcp
+```
+
+Configure Claude Desktop, Cursor or any MCP-compatible client:
+
+```json
+{
+  "mcpServers": {
+    "xtop": {
+      "command": "xtop",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+The server is read-only and exposes:
+
+- **Resources** under `xtop://snapshot/*`: `latest`, `cpu`, `mem`, `disk`, `gpu`, `net`, `proc`.
+- **Tools**: `get_system_summary`, `get_cpu_info`, `get_memory_info`, `get_disk_info`, `get_gpu_info`, `get_network_info`, `get_process_info`.
+
+No tool performs side effects (no kill, no restart, no write).
+
+### SSE mode
+
+Run the server over Server-Sent Events and choose a custom port:
+
+```bash
+xtop mcp --transport sse --port 8080
+```
+
+The default port is `3001`. Then configure your MCP client with the SSE URL:
+
+```json
+{
+  "mcpServers": {
+    "xtop": {
+      "url": "http://127.0.0.1:8080/sse"
+    }
+  }
+}
+```
+
 ## Command-line mode
 
 When started with any flag, `xtop` runs in plain command-line mode instead of launching the TUI.

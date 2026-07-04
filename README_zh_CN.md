@@ -62,6 +62,56 @@ GOOS=darwin GOARCH=arm64 go build ./cmd/xtop
 
 使用鼠标滚轮滚动卡片，拖拽滚动条。
 
+## MCP 服务
+
+`xtop` 可以作为 [Model Context Protocol](https://modelcontextprotocol.io/) 服务器运行，让 AI 助手查询实时系统监控数据。
+
+启动服务：
+
+```bash
+xtop mcp
+```
+
+在 Claude Desktop、Cursor 或其他兼容 MCP 的客户端中配置：
+
+```json
+{
+  "mcpServers": {
+    "xtop": {
+      "command": "xtop",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+该服务为只读，暴露以下内容：
+
+- **Resources**（`xtop://snapshot/*`）：`latest`、`cpu`、`mem`、`disk`、`gpu`、`net`、`proc`。
+- **Tools**：`get_system_summary`、`get_cpu_info`、`get_memory_info`、`get_disk_info`、`get_gpu_info`、`get_network_info`、`get_process_info`。
+
+所有工具均为查询，不执行任何副作用操作（不会结束、重启进程或写入文件）。
+
+### SSE 模式
+
+通过 Server-Sent Events 运行服务器，并自定义端口：
+
+```bash
+xtop mcp --transport sse --port 8080
+```
+
+默认端口为 `3001`。然后在 MCP 客户端中配置 SSE URL：
+
+```json
+{
+  "mcpServers": {
+    "xtop": {
+      "url": "http://127.0.0.1:8080/sse"
+    }
+  }
+}
+```
+
 ## 命令行模式
 
 当带有任何参数启动时，`xtop` 会以普通命令行模式执行，而不是启动 TUI。
