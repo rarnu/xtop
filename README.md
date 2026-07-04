@@ -20,6 +20,32 @@
 
 ## Installation
 
+### One-liner install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rarnu/xtop/main/install.sh | bash
+```
+
+This detects your OS/architecture, downloads the latest release from GitHub and installs `xtop` to `/usr/local/bin` (or `~/.local/bin` if you do not have write access). Language files are installed to `/etc/xtop/lang` or `~/.xtop/lang`.
+
+Install a specific version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rarnu/xtop/main/install.sh | XTOP_VERSION=0.1.0 bash
+```
+
+Install to a custom directory:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rarnu/xtop/main/install.sh | XTOP_INSTALL_DIR=$HOME/bin bash
+```
+
+Uninstall:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rarnu/xtop/main/install.sh | bash -s -- --uninstall
+```
+
 ### Build from source
 
 Requires Go 1.26 or later.

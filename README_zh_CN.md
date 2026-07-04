@@ -20,6 +20,32 @@
 
 ## 安装
 
+### 一句话安装
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rarnu/xtop/main/install.sh | bash
+```
+
+该脚本会自动检测你的操作系统和架构，从 GitHub Releases 下载最新版本并安装 `xtop` 到 `/usr/local/bin`（如果没有写权限则安装到 `~/.local/bin`）。语言文件会安装到 `/etc/xtop/lang` 或 `~/.xtop/lang`。
+
+安装指定版本：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rarnu/xtop/main/install.sh | XTOP_VERSION=0.1.0 bash
+```
+
+安装到自定义目录：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rarnu/xtop/main/install.sh | XTOP_INSTALL_DIR=$HOME/bin bash
+```
+
+卸载：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/rarnu/xtop/main/install.sh | bash -s -- --uninstall
+```
+
 ### 从源码构建
 
 需要 Go 1.26 或更高版本。
