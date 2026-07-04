@@ -25,14 +25,18 @@ const (
 	sortCmd
 )
 
-var sortTitles = map[sortCol]string{
-	sortPID:   "PID",
-	sortUser:  T("proc.detail.user"),
-	sortStat:  T("proc.detail.status"),
-	sortCPU:   T("proc.detail.cpu"),
-	sortMem:   T("proc.detail.mem"),
-	sortStart: "START",
-	sortCmd:   "CMD",
+var sortTitles = map[sortCol]string{}
+
+func init() {
+	sortTitles = map[sortCol]string{
+		sortPID:   "PID",
+		sortUser:  T("proc.detail.user"),
+		sortStat:  T("proc.detail.status"),
+		sortCPU:   T("proc.detail.cpu"),
+		sortMem:   T("proc.detail.mem"),
+		sortStart: T("proc.modal.start"),
+		sortCmd:   T("proc.modal.command"),
+	}
 }
 
 // column order left-to-right.
