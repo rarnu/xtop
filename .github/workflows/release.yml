@@ -24,9 +24,6 @@ jobs:
             arch: arm64
             runner: ubuntu-latest
           - os: darwin
-            arch: amd64
-            runner: macos-latest
-          - os: darwin
             arch: arm64
             runner: macos-latest
     steps:

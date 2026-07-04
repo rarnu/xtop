@@ -100,6 +100,10 @@ do_install() {
         err "Unsupported architecture: $(uname -m). xtop supports amd64 and arm64."
         exit 1
     fi
+    if [ "$os" = "darwin" ] && [ "$arch" = "amd64" ]; then
+        err "Unsupported platform: darwin/amd64. xtop only supports darwin/arm64 (Apple Silicon)."
+        exit 1
+    fi
 
     version="${XTOP_VERSION:-$(get_latest_version)}"
     if [ -z "$version" ]; then
