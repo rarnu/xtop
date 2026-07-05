@@ -15,7 +15,7 @@
 - **Mouse support**: scroll cards, drag scrollbars, click process rows, and interact with dialogs.
 - **Process manager**: press `P`/`Enter` or click the button on the process card to open a full-screen process table. Sort by PID, user, status, CPU, memory, start time or command. Kill or force-kill processes directly.
 - **Process detail popup**: click a process in the Memory/Network/Disk/GPU cards to view details and terminate it.
-- **Multi-language**: automatically loads language files from `/etc/xtop/lang/`, `~/.xtop/lang/` or `./lang/` based on system locale. Falls back to English when a translation is missing.
+- **Multi-language**: automatically loads language files from `~/.xtop/lang/` based on system locale. Falls back to English when a translation is missing.
 - **Cross-platform**: builds on Linux (amd64/arm64) and macOS (arm64/amd64). Some platform-specific features require native CGO builds for full functionality.
 
 ## Installation
@@ -26,7 +26,7 @@
 curl -fsSL https://raw.githubusercontent.com/rarnu/xtop/main/install.sh | bash
 ```
 
-This detects your OS/architecture, downloads the latest release from GitHub and installs `xtop` to `/usr/local/bin` (or `~/.local/bin` if you do not have write access). Language files are installed to `/etc/xtop/lang` or `~/.xtop/lang`.
+This detects your OS/architecture, downloads the latest release from GitHub and installs `xtop` to `/usr/local/bin` (or `~/.local/bin` if you do not have write access). Language files are installed to `~/.xtop/lang`.
 
 Install a specific version:
 
@@ -175,11 +175,7 @@ Examples:
 
 ## Language files
 
-Translation files are loaded from (in priority order):
-
-1. `/etc/xtop/lang/<locale>.json`
-2. `~/.xtop/lang/<locale>.json`
-3. `./lang/<locale>.json`
+Translation files are loaded from `~/.xtop/lang/<locale>.json`.
 
 The locale is detected from `LC_ALL`, `LC_MESSAGES` or `LANG`. If a file is not found, English is used as fallback.
 

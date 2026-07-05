@@ -15,7 +15,7 @@
 - **鼠标支持**：滚动卡片、拖拽滚动条、点击进程行、与弹窗交互。
 - **进程管理器**：按 `P`/`Enter` 或点击进程卡片上的按钮打开全屏进程表。支持按 PID、用户、状态、CPU、内存、启动时间或命令排序，可直接结束或强制结束进程。
 - **进程详情弹窗**：点击内存/网络/磁盘/GPU 卡片中的进程，查看详情并结束进程。
-- **多语言**：根据系统 locale 自动从 `/etc/xtop/lang/`、`~/.xtop/lang/` 或 `./lang/` 加载语言文件。缺少翻译时自动回退到英文。
+- **多语言**：根据系统 locale 自动从 `~/.xtop/lang/` 加载语言文件。缺少翻译时自动回退到英文。
 - **跨平台**：支持 Linux (amd64/arm64) 和 macOS (arm64/amd64) 构建。部分平台特性需要本地 CGO 构建才能完全可用。
 
 ## 安装
@@ -26,7 +26,7 @@
 curl -fsSL https://raw.githubusercontent.com/rarnu/xtop/main/install.sh | bash
 ```
 
-该脚本会自动检测你的操作系统和架构，从 GitHub Releases 下载最新版本并安装 `xtop` 到 `/usr/local/bin`（如果没有写权限则安装到 `~/.local/bin`）。语言文件会安装到 `/etc/xtop/lang` 或 `~/.xtop/lang`。
+该脚本会自动检测你的操作系统和架构，从 GitHub Releases 下载最新版本并安装 `xtop` 到 `/usr/local/bin`（如果没有写权限则安装到 `~/.local/bin`）。语言文件会安装到 `~/.xtop/lang`。
 
 安装指定版本：
 
@@ -175,11 +175,7 @@ xtop mcp --transport sse --port 8080
 
 ## 语言文件
 
-翻译文件按以下优先级加载：
-
-1. `/etc/xtop/lang/<locale>.json`
-2. `~/.xtop/lang/<locale>.json`
-3. `./lang/<locale>.json`
+翻译文件从 `~/.xtop/lang/<locale>.json` 加载。
 
 locale 从 `LC_ALL`、`LC_MESSAGES` 或 `LANG` 环境变量检测。若找不到对应语言文件，则回退到英文。
 

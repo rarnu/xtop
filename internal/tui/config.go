@@ -7,6 +7,16 @@ import (
 	"path/filepath"
 )
 
+// xtopHome returns the single directory used for all user-specific xtop data:
+// configuration, language files, themes and the process cache.
+func xtopHome() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".xtop")
+}
+
 // ConfigFile holds user preferences persisted to disk.
 type ConfigFile struct {
 	Theme ThemeName `json:"theme"`
@@ -14,18 +24,9 @@ type ConfigFile struct {
 
 const configFileName = "config.json"
 
-// ConfigDir returns the directory used for xtop user configuration.
-func ConfigDir() string {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		dir = filepath.Join(os.Getenv("HOME"), ".config")
-	}
-	return filepath.Join(dir, "xtop")
-}
-
 // ConfigPath returns the full path to the config file.
 func ConfigPath() string {
-	return filepath.Join(ConfigDir(), configFileName)
+	return filepath.Join(xtopHome(), configFileName)
 }
 
 // LoadConfig reads the persisted config file, returning defaults on error.
@@ -44,7 +45,10 @@ func LoadConfig() ConfigFile {
 
 // SaveConfig persists the config file to disk.
 func SaveConfig(cfg ConfigFile) error {
-	dir := ConfigDir()
+	dir := xtopHome()
+	if dir == "" {
+		return fmt.Errorf("cannot determine xtop home directory")
+	}
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}

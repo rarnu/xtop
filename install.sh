@@ -60,27 +60,18 @@ maybe_sudo() {
     fi
 }
 
-# Install language files to system or user directory
+# Install language files to ~/.xtop/lang
 install_lang() {
     src_dir="$1"
     if [ -d "${src_dir}/lang" ]; then
-        if maybe_sudo install -d -m 755 "/etc/xtop/lang" 2>/dev/null; then
-            maybe_sudo cp -R "${src_dir}/lang/"* "/etc/xtop/lang/"
-            info "Language files installed to /etc/xtop/lang"
-        else
-            mkdir -p "${HOME}/.xtop/lang"
-            cp -R "${src_dir}/lang/"* "${HOME}/.xtop/lang/"
-            info "Language files installed to ~/.xtop/lang"
-        fi
+        mkdir -p "${HOME}/.xtop/lang"
+        cp -R "${src_dir}/lang/"* "${HOME}/.xtop/lang/"
+        info "Language files installed to ~/.xtop/lang"
     fi
 }
 
 # Remove language files
 uninstall_lang() {
-    if [ -d "/etc/xtop/lang" ]; then
-        maybe_sudo rm -rf "/etc/xtop/lang"
-        info "Removed /etc/xtop/lang"
-    fi
     if [ -d "${HOME}/.xtop/lang" ]; then
         rm -rf "${HOME}/.xtop/lang"
         info "Removed ~/.xtop/lang"

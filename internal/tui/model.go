@@ -399,8 +399,11 @@ func (m *model) updateDashKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "t":
 		m.themeDialog.active = true
 		m.themeDialog.selected = 0
-		if CurrentThemeName() == ThemeLight {
-			m.themeDialog.selected = 1
+		for i, opt := range themeOptionsList() {
+			if opt == CurrentThemeName() {
+				m.themeDialog.selected = i
+				break
+			}
 		}
 		return m, nil
 	}

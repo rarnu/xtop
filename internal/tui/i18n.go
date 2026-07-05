@@ -9,8 +9,8 @@ import (
 )
 
 // dict holds the loaded translation strings. It is populated once at package
-// init time by resolving the system locale and searching the language directories
-// in priority order.
+// init time by resolving the system locale and loading the language file from
+// ~/.xtop/lang.
 var dict map[string]string
 
 func init() {
@@ -34,22 +34,30 @@ func Tf(key string, args ...interface{}) string {
 // It falls back to en_US when the requested locale is unavailable, and finally
 // to a built-in minimal English table if no language file can be loaded.
 func loadDict() map[string]string {
-	locale := systemLocale()
-	paths := langFilePaths(locale)
-	for _, p := range paths {
-		if d, ok := loadLangFile(p); ok {
-			return d
-		}
+	if d, ok := loadLangFile(langFilePath(systemLocale())); ok {
+		return d
 	}
-
-	// Fallback to en_US.
-	for _, p := range langFilePaths("en_US") {
-		if d, ok := loadLangFile(p); ok {
-			return d
-		}
+	if d, ok := loadLangFile(langFilePath("en_US")); ok {
+		return d
 	}
-
 	return builtinDict()
+}
+
+// langFilePath returns the language file path inside ~/.xtop/lang.
+func langFilePath(locale string) string {
+	return filepath.Join(xtopHome(), "lang", locale+".json")
+}
+
+func loadLangFile(path string) (map[string]string, bool) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, false
+	}
+	var out map[string]string
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, false
+	}
+	return out, true
 }
 
 // systemLocale extracts a locale code like zh_CN or en_US from the environment.
@@ -72,29 +80,6 @@ func normalizeLocale(s string) string {
 		return "en_US"
 	}
 	return s
-}
-
-// langFilePaths returns candidate language file paths for locale in search order.
-func langFilePaths(locale string) []string {
-	home, _ := os.UserHomeDir()
-	name := locale + ".json"
-	return []string{
-		filepath.Join("/etc", "xtop", "lang", name),
-		filepath.Join(home, ".xtop", "lang", name),
-		filepath.Join("lang", name),
-	}
-}
-
-func loadLangFile(path string) (map[string]string, bool) {
-	b, err := os.ReadFile(path)
-	if err != nil {
-		return nil, false
-	}
-	var out map[string]string
-	if err := json.Unmarshal(b, &out); err != nil {
-		return nil, false
-	}
-	return out, true
 }
 
 // builtinDict is the last-resort fallback so the UI never shows raw keys when

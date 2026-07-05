@@ -1,8 +1,17 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 
-// ThemeName identifies the available UI themes.
+	"github.com/charmbracelet/lipgloss"
+)
+
+// ThemeName identifies the available UI themes. Built-in names are "dark" and
+// "light"; any other value is treated as a third-party theme loaded from
+// ~/.xtop/themes/<name>.json.
 type ThemeName string
 
 const (
@@ -30,7 +39,27 @@ type themeColors struct {
 	SelRowFG          lipgloss.Color
 }
 
-var themes = map[ThemeName]themeColors{
+// rawThemeColors is the JSON representation of a third-party theme file.
+type rawThemeColors struct {
+	Primary           string `json:"primary"`
+	PrimaryHi         string `json:"primaryHi"`
+	PrimaryDim        string `json:"primaryDim"`
+	Text              string `json:"text"`
+	Faint             string `json:"faint"`
+	Gray              string `json:"gray"`
+	GrayLite          string `json:"grayLite"`
+	Track             string `json:"track"`
+	Red               string `json:"red"`
+	Yellow            string `json:"yellow"`
+	Orange            string `json:"orange"`
+	Blue              string `json:"blue"`
+	RowButtonBG       string `json:"rowButtonBg"`
+	RowButtonDangerBG string `json:"rowButtonDangerBg"`
+	SelRowBG          string `json:"selRowBg"`
+	SelRowFG          string `json:"selRowFg"`
+}
+
+var builtinThemes = map[ThemeName]themeColors{
 	ThemeDark: {
 		Primary:           lipgloss.Color("#33FF66"),
 		PrimaryHi:         lipgloss.Color("#7CFFA6"),
@@ -69,15 +98,36 @@ var themes = map[ThemeName]themeColors{
 	},
 }
 
+// thirdPartyThemes caches loaded third-party themes so SetTheme can switch back
+// to them without re-reading the file every frame. It is separate from the
+// built-in map so that a stale entry is never mistaken for a built-in theme.
+var thirdPartyThemes = map[ThemeName]themeColors{}
+
 var currentThemeName = ThemeDark
 
 // SetTheme switches the active UI theme and reinitializes all dependent styles.
+// For built-in themes it uses the bundled palette. For any other name it attempts
+// to load ~/.xtop/themes/<name>.json; if loading fails it falls back to dark.
 func SetTheme(name ThemeName) {
-	if _, ok := themes[name]; !ok {
-		name = ThemeDark
+	if tc, ok := builtinThemes[name]; ok {
+		currentThemeName = name
+		applyTheme(tc)
+		return
 	}
+
+	// Always reload from disk and refresh the cache so that deleting or updating
+	// a third-party theme file is reflected immediately.
+	delete(thirdPartyThemes, name)
+
+	tc, err := loadThirdPartyTheme(name)
+	if err != nil {
+		currentThemeName = ThemeDark
+		applyTheme(builtinThemes[ThemeDark])
+		return
+	}
+	thirdPartyThemes[name] = tc
 	currentThemeName = name
-	applyTheme()
+	applyTheme(tc)
 }
 
 // CurrentThemeName returns the name of the active theme.
@@ -85,8 +135,79 @@ func CurrentThemeName() ThemeName {
 	return currentThemeName
 }
 
-func applyTheme() {
-	c := themes[currentThemeName]
+// IsBuiltInTheme reports whether name is one of the bundled themes.
+func IsBuiltInTheme(name ThemeName) bool {
+	_, ok := builtinThemes[name]
+	return ok
+}
+
+// UserThemesDir returns the directory for third-party theme files.
+func UserThemesDir() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".xtop", "themes")
+}
+
+// ListUserThemes returns the names of all third-party themes in UserThemesDir.
+func ListUserThemes() []ThemeName {
+	dir := UserThemesDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var out []ThemeName
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if filepath.Ext(name) != ".json" {
+			continue
+		}
+		out = append(out, ThemeName(name[:len(name)-len(".json")]))
+	}
+	return out
+}
+
+func loadThirdPartyTheme(name ThemeName) (themeColors, error) {
+	path := filepath.Join(UserThemesDir(), string(name)+".json")
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return themeColors{}, fmt.Errorf("read theme file: %w", err)
+	}
+	var raw rawThemeColors
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return themeColors{}, fmt.Errorf("parse theme file: %w", err)
+	}
+
+	c := themeColors{
+		Primary:           colorOr(raw.Primary, "#33FF66"),
+		PrimaryHi:         colorOr(raw.PrimaryHi, "#7CFFA6"),
+		PrimaryDim:        colorOr(raw.PrimaryDim, "#1F7A3D"),
+		Text:              colorOr(raw.Text, "#C8E6D0"),
+		Faint:             colorOr(raw.Faint, "#6C8A76"),
+		Gray:              colorOr(raw.Gray, "#4A4A4A"),
+		GrayLite:          colorOr(raw.GrayLite, "#8A8A8A"),
+		Track:             colorOr(raw.Track, "238"),
+		Red:               colorOr(raw.Red, "#FF5555"),
+		Yellow:            colorOr(raw.Yellow, "#E6DB74"),
+		Orange:            colorOr(raw.Orange, "#E0A54B"),
+		Blue:              colorOr(raw.Blue, "#6D8CFF"),
+		RowButtonBG:       colorOr(raw.RowButtonBG, "#123322"),
+		RowButtonDangerBG: colorOr(raw.RowButtonDangerBG, "#3A1414"),
+		SelRowBG:          colorOr(raw.SelRowBG, "#0F3D24"),
+		SelRowFG:          colorOr(raw.SelRowFG, "#7CFFA6"),
+	}
+	return c, nil
+}
+
+func colorOr(value, fallback string) lipgloss.Color {
+	if value == "" {
+		return lipgloss.Color(fallback)
+	}
+	return lipgloss.Color(value)
+}
+
+func applyTheme(c themeColors) {
 	colGreen = c.Primary
 	colGreenHi = c.PrimaryHi
 	colGreenDim = c.PrimaryDim

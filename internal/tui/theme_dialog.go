@@ -13,7 +13,11 @@ type themeDialogState struct {
 	selected int
 }
 
-var themeOptions = []ThemeName{ThemeDark, ThemeLight}
+// themeOptionsList returns the current list of selectable themes: built-ins
+// plus any third-party themes found in ~/.xtop/themes.
+func themeOptionsList() []ThemeName {
+	return append([]ThemeName{ThemeDark, ThemeLight}, ListUserThemes()...)
+}
 
 // overlayThemeDialog renders the theme picker popup on top of the dashboard.
 func overlayThemeDialog(m *model, base string) string {
@@ -25,15 +29,16 @@ func overlayThemeDialog(m *model, base string) string {
 	if innerW < 24 {
 		innerW = 24
 	}
-	innerH := len(themeOptions) + 5 // title, divider, options, gap, hint
+	opts := themeOptionsList()
+	innerH := len(opts) + 5 // title, divider, options, gap, hint
 
 	rows := []string{
 		center(titleStyle.Render(T("theme.title")), innerW),
 		divider(innerW),
 	}
 
-	for i, t := range themeOptions {
-		label := T("theme." + string(t))
+	for i, t := range opts {
+		label := themeLabel(t)
 		line := "  " + label
 		if i == m.themeDialog.selected {
 			line = selectedRowStyle.Render(fitCell("> "+label, innerW, false))
@@ -59,23 +64,33 @@ func overlayThemeDialog(m *model, base string) string {
 	return overlayBox(base, box, left, top)
 }
 
+// themeLabel returns the display label for a theme. Built-ins use translations;
+// third-party themes use their file name.
+func themeLabel(t ThemeName) string {
+	if IsBuiltInTheme(t) {
+		return T("theme." + string(t))
+	}
+	return string(t)
+}
+
 // updateThemeDialogKey handles keyboard input for the theme picker.
 func (m *model) updateThemeDialogKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	opts := themeOptionsList()
 	switch msg.String() {
 	case "esc", "q", "t":
 		m.themeDialog.active = false
 	case "up", "k":
 		m.themeDialog.selected--
 		if m.themeDialog.selected < 0 {
-			m.themeDialog.selected = len(themeOptions) - 1
+			m.themeDialog.selected = len(opts) - 1
 		}
 	case "down", "j":
 		m.themeDialog.selected++
-		if m.themeDialog.selected >= len(themeOptions) {
+		if m.themeDialog.selected >= len(opts) {
 			m.themeDialog.selected = 0
 		}
 	case "enter":
-		return m.applyTheme(themeOptions[m.themeDialog.selected])
+		return m.applyTheme(opts[m.themeDialog.selected])
 	}
 	return m, nil
 }
@@ -94,8 +109,9 @@ func (m *model) updateThemeDialogMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 
 	// Content starts two rows below the top border (title + divider).
 	row := y - db.top - 2
-	if row >= 0 && row < len(themeOptions) {
-		return m.applyTheme(themeOptions[row])
+	opts := themeOptionsList()
+	if row >= 0 && row < len(opts) {
+		return m.applyTheme(opts[row])
 	}
 	return m, nil
 }

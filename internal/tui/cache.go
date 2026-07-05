@@ -25,11 +25,7 @@ type procCache struct {
 
 // cacheDir returns the xtop cache directory (~/.xtop).
 func cacheDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".xtop")
+	return xtopHome()
 }
 
 // cachePath returns the full path to the cache file.

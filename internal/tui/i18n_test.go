@@ -3,6 +3,7 @@ package tui
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -49,16 +50,17 @@ func TestLoadLangFile(t *testing.T) {
 	}
 }
 
-func TestLangFilePaths(t *testing.T) {
-	// Ensure search order is /etc/xtop/lang, ~/.xtop/lang, ./lang.
-	paths := langFilePaths("zh_CN")
-	if len(paths) != 3 {
-		t.Fatalf("expected 3 paths, got %d", len(paths))
+func TestLangFilePath(t *testing.T) {
+	// Ensure the language file path is inside ~/.xtop/lang.
+	path := langFilePath("zh_CN")
+	if filepath.Base(path) != "zh_CN.json" {
+		t.Errorf("basename = %q", filepath.Base(path))
 	}
-	if paths[0] != "/etc/xtop/lang/zh_CN.json" {
-		t.Errorf("first path = %q", paths[0])
+	if !contains(path, ".xtop/lang") {
+		t.Errorf("path %q does not contain '.xtop/lang'", path)
 	}
-	if filepath.Base(paths[2]) != "zh_CN.json" {
-		t.Errorf("last path basename = %q", filepath.Base(paths[2]))
-	}
+}
+
+func contains(s, substr string) bool {
+	return strings.Contains(s, substr)
 }

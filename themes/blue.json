@@ -1,0 +1,18 @@
+{
+  "primary": "#1976D2",
+  "primaryHi": "#0D47A1",
+  "primaryDim": "#64B5F6",
+  "text": "#1565C0",
+  "faint": "#42A5F5",
+  "gray": "#90CAF9",
+  "grayLite": "#BBDEFB",
+  "track": "#E3F2FD",
+  "red": "#D32F2F",
+  "yellow": "#FBC02D",
+  "orange": "#F57C00",
+  "blue": "#0D47A1",
+  "rowButtonBg": "#E3F2FD",
+  "rowButtonDangerBg": "#FFEBEE",
+  "selRowBg": "#BBDEFB",
+  "selRowFg": "#0D47A1"
+}
