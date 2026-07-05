@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shirou/gopsutil/v4/process"
 )
 
 // runProcLoop is the Linux process-cache refresh loop. It walks /proc every

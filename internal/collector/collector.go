@@ -311,7 +311,13 @@ func (c *Collector) usernameOf(p *process.Process) string {
 	if err != nil || len(uids) == 0 {
 		return ""
 	}
-	uid := uids[0]
+	return c.usernameOfUID(uids[0])
+}
+
+// usernameOfUID returns the cached username for a numeric UID, performing a
+// system lookup on cache miss. It is used directly by platforms that read
+// /proc themselves instead of using *process.Process.
+func (c *Collector) usernameOfUID(uid uint32) string {
 	if u, ok := c.userCache[uid]; ok {
 		return u
 	}
