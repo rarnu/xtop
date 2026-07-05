@@ -181,4 +181,4 @@ The locale is detected from `LC_ALL`, `LC_MESSAGES` or `LANG`. If a file is not 
 
 ## License
 
-[MIT](./LICENSE)
+[GPLv3](./LICENSE)

@@ -181,4 +181,4 @@ locale 从 `LC_ALL`、`LC_MESSAGES` 或 `LANG` 环境变量检测。若找不到
 
 ## 许可证
 
-[MIT](./LICENSE)
+[GPLv3](./LICENSE)
