@@ -1,8 +1,8 @@
 package tui
 
 import (
-	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -162,6 +162,29 @@ func fmtBytesF(v float64) string { return scale(v, rateUnits, "") }
 // fmtRate renders a throughput, e.g. "2.1 MB/s".
 func fmtRate(v float64) string { return scale(v, rateUnits, "/s") }
 
+// scaleCache caches formatted scale outputs keyed by (value*100, unit index,
+// suffix). Most displayed byte/rate values fall into a small range, so this
+// removes a large fraction of fmt.Sprintf calls from the render hot path.
+var (
+	scaleCacheMu sync.RWMutex
+	scaleCache   = map[[3]string]string{}
+)
+
+func cachedScale(v float64, unit, suffix string) string {
+	key := [3]string{strconv.FormatInt(int64(v*100+0.5), 10), unit, suffix}
+	scaleCacheMu.RLock()
+	out, ok := scaleCache[key]
+	scaleCacheMu.RUnlock()
+	if ok {
+		return out
+	}
+	out = formatFloat1(v) + " " + unit + suffix
+	scaleCacheMu.Lock()
+	scaleCache[key] = out
+	scaleCacheMu.Unlock()
+	return out
+}
+
 func scale(v float64, units []string, suffix string) string {
 	if v < 0 {
 		v = 0
@@ -171,8 +194,10 @@ func scale(v float64, units []string, suffix string) string {
 		v /= 1024
 		i++
 	}
-	return fmt.Sprintf("%.1f %s%s", v, units[i], suffix)
+	return cachedScale(v, units[i], suffix)
 }
+
+
 
 // rateW returns the display cell width of fmtRate(v). Used when building
 // miniRows so the column width can be cached without re-measuring each frame.

@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -38,7 +37,7 @@ func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bo
 		textLines := []string{
 			twoCol(
 				labelStyle.Render(T("label.read"))+"\n"+valueStyle.Render(fmtBytesF(m.ReadPerSec)),
-				labelStyle.Render(T("label.used"))+"\n"+valueStyle.Render(fmtSize(m.Used)+fmt.Sprintf("(%.0f%%)", m.UsedPercent)),
+				labelStyle.Render(T("label.used"))+"\n"+valueStyle.Render(fmtSize(m.Used)+"("+formatFloat0(m.UsedPercent)+"%)"),
 				half, tw,
 			),
 			twoCol(

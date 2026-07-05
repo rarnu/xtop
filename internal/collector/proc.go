@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/shirou/gopsutil/v4/process"
 )
@@ -50,8 +51,65 @@ func topN(sorted []ProcInfo, n int) []ProcInfo {
 	if len(sorted) < n {
 		n = len(sorted)
 	}
-	return append([]ProcInfo(nil), sorted[:n]...)
+	return cloneProcInfos(sorted[:n])
 }
+
+// ---- slice pools ---------------------------------------------------------
+
+var (
+	procInfoPool = sync.Pool{
+		New: func() interface{} {
+			s := make([]ProcInfo, 0, 256)
+			return s
+		},
+	}
+	netProcPool = sync.Pool{
+		New: func() interface{} {
+			s := make([]NetProc, 0, 64)
+			return s
+		},
+	}
+)
+
+func getProcInfos() []ProcInfo {
+	return procInfoPool.Get().([]ProcInfo)[:0]
+}
+
+func putProcInfos(s []ProcInfo) {
+	if cap(s) > 4096 {
+		return // don't retain huge buffers
+	}
+	procInfoPool.Put(s[:0])
+}
+
+func getNetProcs() []NetProc {
+	return netProcPool.Get().([]NetProc)[:0]
+}
+
+func putNetProcs(s []NetProc) {
+	if cap(s) > 2048 {
+		return
+	}
+	netProcPool.Put(s[:0])
+}
+
+func cloneProcInfos(src []ProcInfo) []ProcInfo {
+	out := getProcInfos()
+	out = append(out, src...)
+	return out
+}
+
+// CloneProcInfos is the exported alias used by the TUI to copy cache slices.
+func CloneProcInfos(src []ProcInfo) []ProcInfo { return cloneProcInfos(src) }
+
+func cloneNetProcs(src []NetProc) []NetProc {
+	out := getNetProcs()
+	out = append(out, src...)
+	return out
+}
+
+// CloneNetProcs is the exported alias used by the TUI to copy cache slices.
+func CloneNetProcs(src []NetProc) []NetProc { return cloneNetProcs(src) }
 
 // ---- Top-K helpers: avoid O(n log n) full sorts for large process lists ------
 

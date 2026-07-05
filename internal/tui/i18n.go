@@ -27,6 +27,9 @@ func T(key string) string {
 
 // Tf formats a translated string with fmt.Sprintf.
 func Tf(key string, args ...interface{}) string {
+	if len(args) == 0 {
+		return T(key)
+	}
 	return fmt.Sprintf(T(key), args...)
 }
 

@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
@@ -204,7 +203,7 @@ func renderProcRow(pr collector.ProcInfo, cols []procColumn, actions string, sel
 		case sortStat:
 			v = pr.Status
 		case sortCPU:
-			v = fmt.Sprintf("%.1f%%", pr.CPU)
+			v = formatFloat1Pct(pr.CPU)
 		case sortMem:
 			v = fmtSize(pr.MemRSS)
 		case sortStart:
@@ -238,7 +237,7 @@ func overlayConfirmOnBase(m *model, base string) string {
 	if m.confirm.force {
 		q = T("confirm.force_kill")
 	}
-	info := fmt.Sprintf("PID %d  %s", m.confirm.pid, truncPlain(m.confirm.name, 40))
+	info := "PID " + strconv.FormatInt(int64(m.confirm.pid), 10) + "  " + truncPlain(m.confirm.name, 40)
 	keys := faintStyle.Render(T("confirm.keys"))
 
 	box := lipgloss.NewStyle().

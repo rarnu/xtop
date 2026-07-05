@@ -1,7 +1,7 @@
 package tui
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -40,11 +40,11 @@ func overlayDetailModal(m *model, base string) string {
 	info := []struct {
 		label, value string
 	}{
-		{T("proc.detail.pid"), fmt.Sprintf("%d", d.PID)},
+		{T("proc.detail.pid"), strconv.FormatInt(int64(d.PID), 10)},
 		{T("proc.detail.command"), d.Command},
 		{T("proc.detail.user"), d.User},
 		{T("proc.detail.status"), d.Status},
-		{T("proc.detail.cpu"), fmt.Sprintf("%.1f%%", d.CPU)},
+		{T("proc.detail.cpu"), formatFloat1Pct(d.CPU)},
 		{T("proc.detail.mem"), fmtSize(d.MemRSS)},
 	}
 

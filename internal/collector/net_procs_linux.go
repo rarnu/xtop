@@ -271,9 +271,11 @@ func publishNetProcs(c *Collector, list []NetProc) {
 	}
 
 	c.netProcMu.Lock()
-	c.netProcCache = append([]NetProc(nil), list...)
+	prev := c.netProcCache
+	c.netProcCache = cloneNetProcs(list)
 	c.netProcSupported = true
 	c.netProcMu.Unlock()
+	putNetProcs(prev)
 
 	select {
 	case c.netProcUpdate <- struct{}{}:

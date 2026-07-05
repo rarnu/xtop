@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strconv"
 
 	"xtop/internal/collector"
@@ -42,6 +41,6 @@ func procCard(p collector.ProcStat, innerWidth, innerHeight int, focused bool, s
 
 // lipglossPct renders a CPU percentage coloured by load level.
 func lipglossPct(pct float64, width int) string {
-	txt := fmt.Sprintf("%.1f%%", pct)
+	txt := formatFloat1Pct(pct)
 	return lipglossFg(levelColor(pct)).Render(fitCell(txt, width, false))
 }

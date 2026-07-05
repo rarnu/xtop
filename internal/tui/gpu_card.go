@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -76,10 +75,10 @@ func gaugeRow(label string, gaugePct float64, value string, innerWidth, valW int
 func gpuPowerTemp(c collector.GPUCard) string {
 	var parts []string
 	if c.PowerW >= 0 {
-		parts = append(parts, fmt.Sprintf("%.0f W", c.PowerW))
+		parts = append(parts, formatFloat0(c.PowerW)+" W")
 	}
 	if c.TempC >= 0 {
-		parts = append(parts, fmt.Sprintf("(%.0f ℃)", c.TempC))
+		parts = append(parts, "("+formatFloat0(c.TempC)+" ℃)")
 	}
 	if len(parts) == 0 {
 		return T("na")
@@ -101,5 +100,5 @@ func gpuLoad(l float64) string {
 	if l < 0 {
 		return T("na")
 	}
-	return fmt.Sprintf("%.0f %%", l)
+	return formatFloat0(l)+" %"
 }

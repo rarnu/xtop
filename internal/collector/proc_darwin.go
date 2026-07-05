@@ -213,8 +213,10 @@ func publishProcs(c *Collector, list []ProcInfo) {
 		topDisk = topKByDisk(list, topProcCount)
 	}
 
+	prev := c.procCache.All
+
 	ps := ProcStat{
-		All:           append([]ProcInfo(nil), list...),
+		All:           cloneProcInfos(list),
 		Top:           topCPU,
 		TopMem:        topMem,
 		TopDisk:       topDisk,
@@ -224,6 +226,7 @@ func publishProcs(c *Collector, list []ProcInfo) {
 	c.procMu.Lock()
 	c.procCache = ps
 	c.procMu.Unlock()
+	putProcInfos(prev)
 
 	select {
 	case c.procUpdate <- struct{}{}:

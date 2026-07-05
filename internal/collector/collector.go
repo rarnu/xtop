@@ -167,8 +167,10 @@ func (c *Collector) procLoop(ctx context.Context) {
 func (c *Collector) refreshProcCache() {
 	ps := c.collectProc(dtSince(&c.prevProcTime))
 	c.procMu.Lock()
+	prev := c.procCache.All
 	c.procCache = ps
 	c.procMu.Unlock()
+	putProcInfos(prev)
 	select {
 	case c.procUpdate <- struct{}{}:
 	default:

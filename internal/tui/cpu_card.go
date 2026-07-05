@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"fmt"
 	"strconv"
 
 	"xtop/internal/collector"
@@ -24,8 +23,8 @@ func cpuCard(c collector.CPUStat, hist []float64, innerWidth, innerHeight int, f
 
 	lines := make([]string, 0, n)
 	for i, v := range c.PerCore {
-		label := labelStyle.Render(fmt.Sprintf("%*d", labelW, i))
-		pct := valueStyle.Render(fmt.Sprintf("%5.1f", v))
+		label := labelStyle.Render(padLeftInt(i, labelW))
+		pct := valueStyle.Render(padFloat1(v, 5))
 		lines = append(lines, label+" "+meterBar(meterW, v)+" "+pct)
 	}
 	return renderCard(innerWidth, innerHeight, "▣", T("card.cpu"), header, lines, focused, scroll)

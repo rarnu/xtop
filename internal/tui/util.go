@@ -2,6 +2,7 @@ package tui
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -42,6 +43,71 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// padLeftInt formats i as a right-aligned decimal string of width cells,
+// padding with spaces on the left. Avoids fmt.Sprintf in hot paths.
+func padLeftInt(i, width int) string {
+	s := strconv.Itoa(i)
+	if len(s) >= width {
+		return s
+	}
+	return spaces(width-len(s)) + s
+}
+
+// padFloat1 formats v with one decimal place and right-aligns it to width cells.
+// Avoids fmt.Sprintf in hot paths.
+func padFloat1(v float64, width int) string {
+	s := formatFloat1(v)
+	if len(s) >= width {
+		return s
+	}
+	return spaces(width-len(s)) + s
+}
+
+// formatPct0 formats v with no decimal places and appends '%'.
+func formatPct0(v float64) string {
+	if v < 0 {
+		v = 0
+	}
+	if v >= 100 {
+		return "100%"
+	}
+	return strconv.FormatInt(int64(v+0.5), 10) + "%"
+}
+
+// formatFloat0 formats v with no decimal places (no suffix).
+func formatFloat0(v float64) string {
+	if v < 0 {
+		v = 0
+	}
+	return strconv.FormatInt(int64(v+0.5), 10)
+}
+
+// formatFloat1Pct formats v with one decimal place followed by '%'.
+func formatFloat1Pct(v float64) string {
+	return formatFloat1(v) + "%"
+}
+
+// formatFloat1 formats v with one decimal place without using fmt.Sprintf.
+func formatFloat1(v float64) string {
+	if v < 0 {
+		v = 0
+	}
+	v += 0.05 // round to one decimal place
+	whole := int64(v)
+	frac := int64((v - float64(whole)) * 10)
+	if frac < 0 {
+		frac = 0
+	}
+	if frac >= 10 {
+		frac = 0
+		whole++
+	}
+	if frac == 0 {
+		return strconv.FormatInt(whole, 10) + ".0"
+	}
+	return strconv.FormatInt(whole, 10) + "." + strconv.FormatInt(frac, 10)
 }
 
 // stringWidth returns the visible cell width of s, stripping any ANSI SGR

@@ -62,9 +62,9 @@ func saveCache(s collector.Snapshot) error {
 
 	pc := procCache{
 		SavedAt:   time.Now(),
-		MemProcs:  s.Proc.TopMem,
-		NetProcs:  s.Net.TopProcs,
-		DiskProcs: s.Proc.TopDisk,
+		MemProcs:  collector.CloneProcInfos(s.Proc.TopMem),
+		NetProcs:  collector.CloneNetProcs(s.Net.TopProcs),
+		DiskProcs: collector.CloneProcInfos(s.Proc.TopDisk),
 	}
 	data, err := json.MarshalIndent(pc, "", "  ")
 	if err != nil {

@@ -178,9 +178,9 @@ func New() *model {
 	// Pre-fill process lists from the on-disk cache so the memory/network/disk
 	// cards show data immediately on startup.
 	if pc, err := loadCache(); err == nil {
-		m.snap.Proc.TopMem = append([]collector.ProcInfo(nil), pc.MemProcs...)
-		m.snap.Net.TopProcs = append([]collector.NetProc(nil), pc.NetProcs...)
-		m.snap.Proc.TopDisk = append([]collector.ProcInfo(nil), pc.DiskProcs...)
+		m.snap.Proc.TopMem = collector.CloneProcInfos(pc.MemProcs)
+		m.snap.Net.TopProcs = collector.CloneNetProcs(pc.NetProcs)
+		m.snap.Proc.TopDisk = collector.CloneProcInfos(pc.DiskProcs)
 		if len(pc.MemProcs) > 0 || len(pc.NetProcs) > 0 || len(pc.DiskProcs) > 0 {
 			m.snap.Proc.DiskSupported = len(pc.DiskProcs) > 0
 			m.snap.Net.ProcsSupported = len(pc.NetProcs) > 0
