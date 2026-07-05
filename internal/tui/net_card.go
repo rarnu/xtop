@@ -38,11 +38,13 @@ func netCard(n collector.NetStat, downHist []float64, innerWidth, innerHeight in
 		rows := make([]miniRow, 0, len(n.TopProcs))
 		for _, p := range n.TopProcs {
 			rows = append(rows, miniRow{
-				UpValue:   fmtRate(p.UploadPerSec),
-				DownValue: fmtRate(p.DownloadPerSec),
-				Command:   p.Command,
-				PID:       p.PID,
-				TwoCol:    true,
+				UpValue:    fmtRate(p.UploadPerSec),
+				DownValue:  fmtRate(p.DownloadPerSec),
+				Command:    p.Command,
+				PID:        p.PID,
+				TwoCol:     true,
+				upValueW:   rateW(p.UploadPerSec),
+				downValueW: rateW(p.DownloadPerSec),
 			})
 		}
 		fixed = []string{head, "", up, down, miniTwoColHeaderLine(cw, rows, T("label.upload"), T("label.download"))}

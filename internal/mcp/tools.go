@@ -101,13 +101,13 @@ func makePartHandler(c *collector.Collector, part string, formatter func(collect
 
 func processToolBuilder() mcps.Tool {
 	return readOnlyTool("get_process_info",
-		"Get top processes ordered by CPU, memory, disk or GPU memory.",
+		"Get top processes ordered by CPU, memory, disk or GPU memory. The full process list is never returned; only the requested top-N slice is serialized.",
 		mcps.WithString("top_by",
 			mcps.Description("Dimension to sort by: cpu, mem, disk or gpu"),
 			mcps.Enum("cpu", "mem", "disk", "gpu"),
 		),
 		mcps.WithNumber("limit",
-			mcps.Description("Maximum number of processes to return (1-50, default 10)"),
+			mcps.Description("Maximum number of processes to return (1-20, default 10)"),
 		),
 	)
 }
@@ -119,11 +119,12 @@ func makeProcessHandler(c *collector.Collector) func(context.Context, mcps.CallT
 		if limit < 1 {
 			limit = 1
 		}
-		if limit > 50 {
-			limit = 50
+		if limit > 20 {
+			limit = 20
 		}
-		snap := c.Snapshot()
-		return mcps.NewToolResultText(formatProc(snap.Proc, topBy, limit)), nil
+		// Avoid collecting a full snapshot when only process info is needed.
+		ps := c.CollectProc()
+		return mcps.NewToolResultText(formatProc(ps, topBy, limit)), nil
 	}
 }
 

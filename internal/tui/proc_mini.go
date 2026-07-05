@@ -16,6 +16,12 @@ type miniRow struct {
 	DownValue string
 	Command   string
 	TwoCol    bool // if true, render UpValue and DownValue side by side
+
+	// cached display widths, computed once when the row is built to avoid
+	// re-measuring strings on every render frame.
+	valueW    int
+	upValueW  int
+	downValueW int
 }
 
 var selectedRowStyle = lipgloss.NewStyle().
@@ -24,10 +30,15 @@ var selectedRowStyle = lipgloss.NewStyle().
 
 // miniValW returns the width of the value column for a process mini-list, sized
 // to fit the header text and the widest value in rows, capped at half the card.
+// Prefer the pre-cached row widths when available.
 func miniValW(cw int, valueHead string, rows []miniRow) int {
 	w := runewidth.StringWidth(valueHead)
 	for _, r := range rows {
-		if v := runewidth.StringWidth(r.Value); v > w {
+		v := r.valueW
+		if v == 0 {
+			v = runewidth.StringWidth(r.Value)
+		}
+		if v > w {
 			w = v
 		}
 	}
@@ -65,8 +76,16 @@ func miniRowLines(cw int, rows []miniRow, selected selectedProc) []string {
 		maxValW := maxInt(cw/3, minValW)
 		upW, downW := minValW, minValW
 		for _, r := range rows {
-			upW = maxInt(upW, runewidth.StringWidth(r.UpValue))
-			downW = maxInt(downW, runewidth.StringWidth(r.DownValue))
+			uw := r.upValueW
+			if uw == 0 {
+				uw = runewidth.StringWidth(r.UpValue)
+			}
+			dw := r.downValueW
+			if dw == 0 {
+				dw = runewidth.StringWidth(r.DownValue)
+			}
+			upW = maxInt(upW, uw)
+			downW = maxInt(downW, dw)
 		}
 		upW = minInt(upW, maxValW)
 		downW = minInt(downW, maxValW)
@@ -110,8 +129,16 @@ func miniTwoColHeaderLine(cw int, rows []miniRow, leftHead, rightHead string) st
 	maxValW := maxInt(cw/3, minValW)
 	upW, downW := minValW, minValW
 	for _, r := range rows {
-		upW = maxInt(upW, runewidth.StringWidth(r.UpValue))
-		downW = maxInt(downW, runewidth.StringWidth(r.DownValue))
+		uw := r.upValueW
+		if uw == 0 {
+			uw = runewidth.StringWidth(r.UpValue)
+		}
+		dw := r.downValueW
+		if dw == 0 {
+			dw = runewidth.StringWidth(r.DownValue)
+		}
+		upW = maxInt(upW, uw)
+		downW = maxInt(downW, dw)
 	}
 	upW = minInt(upW, maxValW)
 	downW = minInt(downW, maxValW)

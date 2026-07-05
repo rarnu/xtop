@@ -36,6 +36,11 @@ const nettopFastInterval = 1 * time.Second
 func collectNetProcsLoop(ctx context.Context, c *Collector) {
 	const restartDelay = 5 * time.Second
 
+	steady := nettopSampleInterval
+	if c.netProcInterval > 0 {
+		steady = c.netProcInterval
+	}
+
 	// Fast first frame: use a 1-second interval so the UI gets data quickly.
 	runOneNettop(ctx, c, int(nettopFastInterval.Seconds()))
 	select {
@@ -44,14 +49,14 @@ func collectNetProcsLoop(ctx context.Context, c *Collector) {
 	default:
 	}
 
-	// Steady state: longer interval to keep CPU usage reasonable.
+	// Steady state: configurable interval; default keeps CPU usage reasonable.
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 		}
-		runOneNettop(ctx, c, int(nettopSampleInterval.Seconds()))
+		runOneNettop(ctx, c, int(steady.Seconds()))
 		select {
 		case <-ctx.Done():
 			return

@@ -65,11 +65,13 @@ func diskCard(d collector.DiskStat, procs []collector.ProcInfo, diskSupported bo
 				continue
 			}
 			rows = append(rows, miniRow{
-				UpValue:   fmtRate(p.DiskReadPerSec),
-				DownValue: fmtRate(p.DiskWritePerSec),
-				Command:   p.Command,
-				PID:       p.PID,
-				TwoCol:    true,
+				UpValue:    fmtRate(p.DiskReadPerSec),
+				DownValue:  fmtRate(p.DiskWritePerSec),
+				Command:    p.Command,
+				PID:        p.PID,
+				TwoCol:     true,
+				upValueW:   rateW(p.DiskReadPerSec),
+				downValueW: rateW(p.DiskWritePerSec),
 			})
 		}
 		lines = append(lines, miniTwoColHeaderLine(cw, rows, T("label.read"), T("label.write")))

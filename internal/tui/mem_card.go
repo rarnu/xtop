@@ -1,6 +1,10 @@
 package tui
 
-import "xtop/internal/collector"
+import (
+	"github.com/mattn/go-runewidth"
+
+	"xtop/internal/collector"
+)
 
 // memCard renders a used/cached/free segmented bar with a legend (fixed), plus a
 // scrollable list of the top processes by resident memory below it. The summary
@@ -34,7 +38,7 @@ func memCard(m collector.MemStat, procs []collector.ProcInfo, innerWidth, innerH
 
 	rows := make([]miniRow, 0, len(procs))
 	for _, p := range procs {
-		rows = append(rows, miniRow{Value: fmtSize(p.MemRSS), Command: p.Command, PID: p.PID})
+		rows = append(rows, miniRow{Value: fmtSize(p.MemRSS), Command: p.Command, PID: p.PID, valueW: runewidth.StringWidth(fmtSize(p.MemRSS))})
 	}
 
 	fixed := []string{bar, "", legend, values, miniHeaderLine(cw, T("label.memory"), rows)}

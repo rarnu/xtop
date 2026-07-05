@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 
 	"xtop/internal/collector"
 )
@@ -49,7 +50,7 @@ func gpuCard(g collector.GPUStat, hist []float64, innerWidth, innerHeight int, f
 	} else {
 		rows := make([]miniRow, 0, len(g.TopProcs))
 		for _, p := range g.TopProcs {
-			rows = append(rows, miniRow{Value: fmtSize(p.MemBytes), Command: p.Command, PID: p.PID})
+			rows = append(rows, miniRow{Value: fmtSize(p.MemBytes), Command: p.Command, PID: p.PID, valueW: runewidth.StringWidth(fmtSize(p.MemBytes))})
 		}
 		lines = append(lines, miniHeaderLine(cw, T("label.gpu_mem"), rows))
 		lines = append(lines, miniRowLines(cw, rows, selected)...)

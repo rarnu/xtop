@@ -13,6 +13,11 @@ import (
 	"github.com/shirou/gopsutil/v4/cpu"
 )
 
+// SnapshotTTL is the maximum age of a cached snapshot returned by Snapshot().
+// MCP servers and other high-frequency callers can reuse a snapshot within this
+// window instead of triggering a fresh synchronous collection.
+const SnapshotTTL = 1 * time.Second
+
 // Collector produces Snapshots. It keeps each rate-based subsystem's previous
 // counters plus the timestamp of that subsystem's last sample, so it can derive
 // rates (disk IO, network throughput, per-process CPU) from deltas.
@@ -55,6 +60,15 @@ type Collector struct {
 	// process for 1000+ procs would take seconds. Usernames are stable, so we
 	// cache across walks and only ever look up each distinct uid once.
 	userCache map[uint32]string
+
+	// cached snapshot for high-frequency read-only callers (e.g. MCP).
+	snapMu    sync.RWMutex
+	snapCache Snapshot
+	snapTime  time.Time
+
+	// NetProc interval; 0 means "use default". Mutable so callers can tune the
+	// refresh rate of the macOS nettop goroutine.
+	netProcInterval time.Duration
 }
 
 type ioCounter struct {
@@ -76,15 +90,36 @@ const procRefreshInterval = 3 * time.Second
 // call StartProcLoop / StartNetProcLoop when the UI wants that data.
 func New() *Collector {
 	return &Collector{
-		prevDiskIO:    map[string]ioCounter{},
-		prevProc:      map[int32]float64{},
-		prevProcDisk:  map[int32]uint64{},
-		prevProcRead:  map[int32]uint64{},
-		prevProcWrite: map[int32]uint64{},
-		userCache:     map[uint32]string{},
-		procUpdate:    make(chan struct{}, 1),
-		netProcUpdate: make(chan struct{}, 1),
+		prevDiskIO:      map[string]ioCounter{},
+		prevProc:        map[int32]float64{},
+		prevProcDisk:    map[int32]uint64{},
+		prevProcRead:    map[int32]uint64{},
+		prevProcWrite:   map[int32]uint64{},
+		userCache:       map[uint32]string{},
+		procUpdate:      make(chan struct{}, 1),
+		netProcUpdate:   make(chan struct{}, 1),
+		netProcInterval: 0,
 	}
+}
+
+// SetNetProcInterval sets the interval used by the macOS nettop goroutine.
+// It only takes effect the next time the goroutine is started. A value of 0
+// means "use the default (5s steady state)". Values smaller than 1s are clamped
+// to 1s to prevent excessive CPU usage.
+func (c *Collector) SetNetProcInterval(d time.Duration) {
+	if d < 0 {
+		d = 0
+	}
+	if d > 0 && d < time.Second {
+		d = time.Second
+	}
+	c.netProcInterval = d
+}
+
+// NetProcInterval returns the configured nettop interval, or 0 if using the
+// built-in default.
+func (c *Collector) NetProcInterval() time.Duration {
+	return c.netProcInterval
 }
 
 // StartProcLoop starts the dedicated goroutine that refreshes procCache every
@@ -171,8 +206,20 @@ func (c *Collector) NetProcUpdate() <-chan struct{} { return c.netProcUpdate }
 
 // Snapshot captures every subsystem once. Rate-based fields are zero on the
 // very first call for each subsystem (no previous sample to diff against).
+//
+// A short-lived cache is used so that high-frequency read-only callers (such as
+// the MCP server) do not trigger a fresh synchronous collection on every call.
 func (c *Collector) Snapshot() Snapshot {
-	return Snapshot{
+	c.snapMu.RLock()
+	if !c.snapTime.IsZero() && time.Since(c.snapTime) < SnapshotTTL {
+		snap := c.snapCache
+		c.snapMu.RUnlock()
+		snap.Time = time.Now()
+		return snap
+	}
+	c.snapMu.RUnlock()
+
+	snap := Snapshot{
 		Time: time.Now(),
 		CPU:  c.CollectCPU(),
 		Mem:  c.CollectMem(),
@@ -181,6 +228,11 @@ func (c *Collector) Snapshot() Snapshot {
 		GPU:  c.CollectGPU(),
 		Proc: c.CollectProc(),
 	}
+	c.snapMu.Lock()
+	c.snapCache = snap
+	c.snapTime = time.Now()
+	c.snapMu.Unlock()
+	return snap
 }
 
 // dtSince returns the elapsed seconds since *prev (0 the first time, when *prev

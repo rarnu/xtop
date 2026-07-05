@@ -20,6 +20,10 @@ const (
 	disableProc = false
 )
 
+// netProcInterval is the refresh interval for the macOS per-process network
+// collection goroutine (nettop). A zero value uses the collector default.
+var netProcInterval = time.Duration(0)
+
 // confirmState tracks a pending KILL / FORCE KILL confirmation.
 type confirmState struct {
 	active bool
@@ -187,6 +191,7 @@ func New() *model {
 		m.col.StartProcLoop()
 	}
 	if !disableNet {
+		m.col.SetNetProcInterval(netProcInterval)
 		m.col.StartNetProcLoop()
 	}
 	return m

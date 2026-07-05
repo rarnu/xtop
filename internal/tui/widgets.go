@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 )
 
 // ---- style cache -------------------------------------------------------
@@ -15,6 +16,114 @@ var (
 	fgStyleMu   sync.RWMutex
 	fgStyleCache = map[lipgloss.Color]lipgloss.Style{}
 )
+
+// ---- render caches ------------------------------------------------------
+
+// barKey uniquely identifies a cached one-dimensional bar/gauge render.
+type barKey struct {
+	width int
+	pct   int // percentage rounded to nearest integer
+	kind  string
+}
+
+var (
+	barCacheMu sync.RWMutex
+	barCache   = map[barKey]string{}
+)
+
+func cachedBar(width int, pct float64, kind string, render func(int, float64) string) string {
+	if width < 1 {
+		width = 1
+	}
+	k := barKey{width: width, pct: int(math.Round(pct)), kind: kind}
+	barCacheMu.RLock()
+	v, ok := barCache[k]
+	barCacheMu.RUnlock()
+	if ok {
+		return v
+	}
+	v = render(width, pct)
+	barCacheMu.Lock()
+	barCache[k] = v
+	barCacheMu.Unlock()
+	return v
+}
+
+// sparkKey caches a sparkline render. pctDigest stores the auto-scaled max as
+// an integer percentage of the absolute max sample; this is approximate but
+// enough to detect meaningful changes in the sparkline shape.
+type sparkKey struct {
+	width   int
+	color   lipgloss.Color
+	last8   uint64 // digest of the last up to 8 samples
+	maxPct  int
+}
+
+func digestFloats(v []float64) uint64 {
+	// Fast, order-sensitive hash of float values quantized to integers.
+	var h uint64
+	for _, f := range v {
+		h = h*31 + uint64(int64(f*1000+0.5))
+	}
+	return h
+}
+
+var (
+	sparkCacheMu sync.RWMutex
+	sparkCache   = map[sparkKey]string{}
+)
+
+func cachedSparkline(width int, data []float64, color lipgloss.Color, render func(int, []float64, lipgloss.Color) string) string {
+	if width < 1 {
+		width = 1
+	}
+	max := 0.0
+	for _, v := range data {
+		if v > max {
+			max = v
+		}
+	}
+	maxPct := 0
+	if max > 0 {
+		maxPct = int(max*100 + 0.5)
+	}
+	keyData := data
+	if len(keyData) > width {
+		keyData = keyData[len(keyData)-width:]
+	}
+	if len(keyData) > 8 {
+		keyData = keyData[len(keyData)-8:]
+	}
+	k := sparkKey{
+		width:  width,
+		color:  color,
+		last8:  digestFloats(keyData),
+		maxPct: maxPct,
+	}
+	sparkCacheMu.RLock()
+	v, ok := sparkCache[k]
+	sparkCacheMu.RUnlock()
+	if ok {
+		return v
+	}
+	v = render(width, data, color)
+	sparkCacheMu.Lock()
+	sparkCache[k] = v
+	sparkCacheMu.Unlock()
+	return v
+}
+
+func init() {
+	// Warm caches for common bar widths and percentages on startup to avoid
+	// first-frame allocation spikes.
+	for pct := 0; pct <= 100; pct += 10 {
+		for w := 1; w <= 40; w++ {
+			_ = cachedBar(w, float64(pct), "meter", renderMeterBar)
+			_ = cachedBar(w, float64(pct), "block", renderBlockBar)
+			_ = cachedBar(w, float64(pct), "line", renderLineGauge)
+		}
+	}
+}
 
 // fgStyle returns a cached lipgloss.Style with the requested foreground colour.
 // This avoids allocating a new style on every render frame in hot paths.
@@ -65,6 +174,12 @@ func scale(v float64, units []string, suffix string) string {
 	return fmt.Sprintf("%.1f %s%s", v, units[i], suffix)
 }
 
+// rateW returns the display cell width of fmtRate(v). Used when building
+// miniRows so the column width can be cached without re-measuring each frame.
+func rateW(v float64) int {
+	return runewidth.StringWidth(fmtRate(v))
+}
+
 // ---- bars & meters -----------------------------------------------------
 
 func clampPct(p float64) float64 {
@@ -80,6 +195,10 @@ func clampPct(p float64) float64 {
 // meterBar renders a CPU-style meter of vertical ticks: filled ticks coloured by
 // utilisation level, the remainder in a dark track. (see CPU.png)
 func meterBar(width int, pct float64) string {
+	return cachedBar(width, pct, "meter", renderMeterBar)
+}
+
+func renderMeterBar(width int, pct float64) string {
 	if width < 1 {
 		width = 1
 	}
@@ -96,6 +215,10 @@ func meterBar(width int, pct float64) string {
 // blockBar renders a solid horizontal bar ('█') filled to pct, coloured by level,
 // with a dark track behind. (disk usage, gpu memory)
 func blockBar(width int, pct float64) string {
+	return cachedBar(width, pct, "block", renderBlockBar)
+}
+
+func renderBlockBar(width int, pct float64) string {
 	if width < 1 {
 		width = 1
 	}
@@ -111,6 +234,10 @@ func blockBar(width int, pct float64) string {
 
 // lineGauge renders a thin rounded gauge used by GPU temperature/load. (GPU.png)
 func lineGauge(width int, pct float64) string {
+	return cachedBar(width, pct, "line", renderLineGauge)
+}
+
+func renderLineGauge(width int, pct float64) string {
 	if width < 2 {
 		width = 2
 	}
@@ -162,6 +289,10 @@ var sparkRunes = []rune("▁▂▃▄▅▆▇█")
 // sparkline renders the last `width` samples as a coloured block sparkline,
 // auto-scaled to the maximum sample. (chart strip at the top of cards)
 func sparkline(width int, data []float64, color lipgloss.Color) string {
+	return cachedSparkline(width, data, color, renderSparkline)
+}
+
+func renderSparkline(width int, data []float64, color lipgloss.Color) string {
 	if width < 1 {
 		width = 1
 	}
