@@ -1,6 +1,7 @@
 package collector
 
 import (
+	"container/heap"
 	"path/filepath"
 	"strings"
 
@@ -50,6 +51,125 @@ func topN(sorted []ProcInfo, n int) []ProcInfo {
 		n = len(sorted)
 	}
 	return append([]ProcInfo(nil), sorted[:n]...)
+}
+
+// ---- Top-K helpers: avoid O(n log n) full sorts for large process lists ------
+
+type cpuHeap []ProcInfo
+
+func (h cpuHeap) Len() int            { return len(h) }
+func (h cpuHeap) Less(i, j int) bool  { return h[i].CPU < h[j].CPU }
+func (h cpuHeap) Swap(i, j int)       { h[i], h[j] = h[j], h[i] }
+func (h *cpuHeap) Push(x interface{}) { *h = append(*h, x.(ProcInfo)) }
+func (h *cpuHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[:n-1]
+	return x
+}
+
+type memHeap []ProcInfo
+
+func (h memHeap) Len() int           { return len(h) }
+func (h memHeap) Less(i, j int) bool { return h[i].MemRSS < h[j].MemRSS }
+func (h memHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h *memHeap) Push(x interface{}) {
+	*h = append(*h, x.(ProcInfo))
+}
+func (h *memHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[:n-1]
+	return x
+}
+
+type diskHeap []ProcInfo
+
+func (h diskHeap) diskRate(i int) float64 {
+	return h[i].DiskReadPerSec + h[i].DiskWritePerSec
+}
+func (h diskHeap) Len() int { return len(h) }
+func (h diskHeap) Less(i, j int) bool {
+	return h.diskRate(i) < h.diskRate(j)
+}
+func (h diskHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
+func (h *diskHeap) Push(x interface{}) {
+	*h = append(*h, x.(ProcInfo))
+}
+func (h *diskHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	*h = old[:n-1]
+	return x
+}
+
+// topKByCPU returns the top n processes by CPU, sorted descending.
+func topKByCPU(list []ProcInfo, n int) []ProcInfo {
+	if n <= 0 {
+		return nil
+	}
+	h := &cpuHeap{}
+	heap.Init(h)
+	for _, p := range list {
+		if h.Len() < n {
+			heap.Push(h, p)
+		} else if p.CPU > (*h)[0].CPU {
+			heap.Pop(h)
+			heap.Push(h, p)
+		}
+	}
+	out := make([]ProcInfo, h.Len())
+	for i := h.Len() - 1; i >= 0; i-- {
+		out[i] = heap.Pop(h).(ProcInfo)
+	}
+	return out
+}
+
+// topKByMem returns the top n processes by memory RSS, sorted descending.
+func topKByMem(list []ProcInfo, n int) []ProcInfo {
+	if n <= 0 {
+		return nil
+	}
+	h := &memHeap{}
+	heap.Init(h)
+	for _, p := range list {
+		if h.Len() < n {
+			heap.Push(h, p)
+		} else if p.MemRSS > (*h)[0].MemRSS {
+			heap.Pop(h)
+			heap.Push(h, p)
+		}
+	}
+	out := make([]ProcInfo, h.Len())
+	for i := h.Len() - 1; i >= 0; i-- {
+		out[i] = heap.Pop(h).(ProcInfo)
+	}
+	return out
+}
+
+// topKByDisk returns the top n processes by (read+write) rate, sorted descending.
+func topKByDisk(list []ProcInfo, n int) []ProcInfo {
+	if n <= 0 {
+		return nil
+	}
+	h := &diskHeap{}
+	heap.Init(h)
+	for _, p := range list {
+		if h.Len() < n {
+			heap.Push(h, p)
+		} else if p.DiskReadPerSec+p.DiskWritePerSec > (*h)[0].DiskReadPerSec+(*h)[0].DiskWritePerSec {
+			heap.Pop(h)
+			heap.Push(h, p)
+		}
+	}
+	out := make([]ProcInfo, h.Len())
+	for i := h.Len() - 1; i >= 0; i-- {
+		out[i] = heap.Pop(h).(ProcInfo)
+	}
+	return out
 }
 
 // shortStatus reduces one process's status to a single display letter.

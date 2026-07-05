@@ -69,7 +69,7 @@ func gaugeRow(label string, gaugePct float64, value string, innerWidth, valW int
 		p = 0
 	}
 	return labelStyle.Render(fitCell(label, labelW, false)) + " " +
-		lineGauge(gw, p) + strings.Repeat(" ", gap) + valueStyle.Render(fitCell(value, valW, true))
+		lineGauge(gw, p) + spaces(gap) + valueStyle.Render(fitCell(value, valW, true))
 }
 
 func gpuPowerTemp(c collector.GPUCard) string {

@@ -70,7 +70,7 @@ func (m *model) renderDashboard() []string {
 		procCardStr,
 	}
 
-	gap := strings.Repeat(" ", gapH)
+	gap := spaces(gapH)
 	row1 := lipgloss.JoinHorizontal(lipgloss.Top, cards[0], gap, cards[1], gap, cards[2])
 	row2 := lipgloss.JoinHorizontal(lipgloss.Top, cards[3], gap, cards[4], gap, cards[5])
 

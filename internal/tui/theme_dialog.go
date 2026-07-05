@@ -119,6 +119,7 @@ func (m *model) updateThemeDialogMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 func (m *model) applyTheme(name ThemeName) (tea.Model, tea.Cmd) {
 	SetTheme(name)
 	m.themeDialog.active = false
+	m.dashDirty = true
 	m.recompute()
 	cfg := LoadConfig()
 	cfg.Theme = name

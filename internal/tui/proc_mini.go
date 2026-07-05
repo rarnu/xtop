@@ -1,6 +1,9 @@
 package tui
 
-import "github.com/charmbracelet/lipgloss"
+import (
+	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
+)
 
 // miniRow is one entry in a card's process mini-list: a formatted metric value
 // and the process command. The optional Up/Down fields are used by the network
@@ -22,9 +25,9 @@ var selectedRowStyle = lipgloss.NewStyle().
 // miniValW returns the width of the value column for a process mini-list, sized
 // to fit the header text and the widest value in rows, capped at half the card.
 func miniValW(cw int, valueHead string, rows []miniRow) int {
-	w := lipgloss.Width(valueHead)
+	w := runewidth.StringWidth(valueHead)
 	for _, r := range rows {
-		if v := lipgloss.Width(r.Value); v > w {
+		if v := runewidth.StringWidth(r.Value); v > w {
 			w = v
 		}
 	}
@@ -62,8 +65,8 @@ func miniRowLines(cw int, rows []miniRow, selected selectedProc) []string {
 		maxValW := maxInt(cw/3, minValW)
 		upW, downW := minValW, minValW
 		for _, r := range rows {
-			upW = maxInt(upW, lipgloss.Width(r.UpValue))
-			downW = maxInt(downW, lipgloss.Width(r.DownValue))
+			upW = maxInt(upW, runewidth.StringWidth(r.UpValue))
+			downW = maxInt(downW, runewidth.StringWidth(r.DownValue))
 		}
 		upW = minInt(upW, maxValW)
 		downW = minInt(downW, maxValW)
@@ -107,8 +110,8 @@ func miniTwoColHeaderLine(cw int, rows []miniRow, leftHead, rightHead string) st
 	maxValW := maxInt(cw/3, minValW)
 	upW, downW := minValW, minValW
 	for _, r := range rows {
-		upW = maxInt(upW, lipgloss.Width(r.UpValue))
-		downW = maxInt(downW, lipgloss.Width(r.DownValue))
+		upW = maxInt(upW, runewidth.StringWidth(r.UpValue))
+		downW = maxInt(downW, runewidth.StringWidth(r.DownValue))
 	}
 	upW = minInt(upW, maxValW)
 	downW = minInt(downW, maxValW)

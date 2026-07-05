@@ -4,9 +4,36 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 
 	"github.com/charmbracelet/lipgloss"
 )
+
+// ---- style cache -------------------------------------------------------
+
+var (
+	fgStyleMu   sync.RWMutex
+	fgStyleCache = map[lipgloss.Color]lipgloss.Style{}
+)
+
+// fgStyle returns a cached lipgloss.Style with the requested foreground colour.
+// This avoids allocating a new style on every render frame in hot paths.
+func fgStyle(c lipgloss.Color) lipgloss.Style {
+	fgStyleMu.RLock()
+	s, ok := fgStyleCache[c]
+	fgStyleMu.RUnlock()
+	if ok {
+		return s
+	}
+	fgStyleMu.Lock()
+	defer fgStyleMu.Unlock()
+	if s, ok := fgStyleCache[c]; ok {
+		return s
+	}
+	s = lipgloss.NewStyle().Foreground(c)
+	fgStyleCache[c] = s
+	return s
+}
 
 // ---- number formatting -------------------------------------------------
 
@@ -61,8 +88,8 @@ func meterBar(width int, pct float64) string {
 	if filled > width {
 		filled = width
 	}
-	on := lipgloss.NewStyle().Foreground(levelColor(pct)).Render(strings.Repeat("│", filled))
-	off := lipgloss.NewStyle().Foreground(colTrack).Render(strings.Repeat("│", width-filled))
+	on := fgStyle(levelColor(pct)).Render(strings.Repeat("│", filled))
+	off := fgStyle(colTrack).Render(strings.Repeat("│", width-filled))
 	return on + off
 }
 
@@ -77,8 +104,8 @@ func blockBar(width int, pct float64) string {
 	if filled > width {
 		filled = width
 	}
-	on := lipgloss.NewStyle().Foreground(levelColor(pct)).Render(strings.Repeat("█", filled))
-	off := lipgloss.NewStyle().Foreground(colTrack).Render(strings.Repeat("─", width-filled))
+	on := fgStyle(levelColor(pct)).Render(strings.Repeat("█", filled))
+	off := fgStyle(colTrack).Render(strings.Repeat("─", width-filled))
 	return on + off
 }
 
@@ -92,8 +119,8 @@ func lineGauge(width int, pct float64) string {
 	if filled > width {
 		filled = width
 	}
-	on := lipgloss.NewStyle().Foreground(levelColor(pct)).Render(strings.Repeat("━", filled))
-	off := lipgloss.NewStyle().Foreground(colGray).Render(strings.Repeat("━", width-filled))
+	on := fgStyle(levelColor(pct)).Render(strings.Repeat("━", filled))
+	off := fgStyle(colGray).Render(strings.Repeat("━", width-filled))
 	return on + off
 }
 
@@ -123,7 +150,7 @@ func segBar(width int, parts []segPart) string {
 			n = width - used
 		}
 		if n > 0 {
-			b.WriteString(lipgloss.NewStyle().Foreground(p.color).Render(strings.Repeat("█", n)))
+			b.WriteString(fgStyle(p.color).Render(strings.Repeat("█", n)))
 			used += n
 		}
 	}
@@ -139,7 +166,7 @@ func sparkline(width int, data []float64, color lipgloss.Color) string {
 		width = 1
 	}
 	if len(data) == 0 {
-		return lipgloss.NewStyle().Foreground(colTrack).Render(strings.Repeat("▁", width))
+		return fgStyle(colTrack).Render(strings.Repeat("▁", width))
 	}
 	if len(data) > width {
 		data = data[len(data)-width:]
@@ -156,9 +183,9 @@ func sparkline(width int, data []float64, color lipgloss.Color) string {
 	var b strings.Builder
 	// left-pad with empty track when fewer samples than width
 	if pad := width - len(data); pad > 0 {
-		b.WriteString(lipgloss.NewStyle().Foreground(colTrack).Render(strings.Repeat("▁", pad)))
+		b.WriteString(fgStyle(colTrack).Render(strings.Repeat("▁", pad)))
 	}
-	style := lipgloss.NewStyle().Foreground(color)
+	style := fgStyle(color)
 	for _, v := range data {
 		idx := int(v / max * float64(len(sparkRunes)-1))
 		if idx < 0 {
@@ -179,7 +206,7 @@ var tankFrame = lipgloss.NewStyle().Foreground(colGreenDim)
 func vTank(innerRows int, pct float64) []string {
 	pct = clampPct(pct)
 	filled := int(math.Round(pct / 100 * float64(innerRows)))
-	col := lipgloss.NewStyle().Foreground(levelColor(pct))
+	col := fgStyle(levelColor(pct))
 
 	lines := make([]string, 0, innerRows+2)
 	lines = append(lines, tankFrame.Render("╭─╮"))
@@ -197,5 +224,5 @@ func vTank(innerRows int, pct float64) []string {
 
 // dot returns a coloured bullet used in legends.
 func dot(color lipgloss.Color) string {
-	return lipgloss.NewStyle().Foreground(color).Render("●")
+	return fgStyle(color).Render("●")
 }

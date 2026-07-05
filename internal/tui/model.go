@@ -47,12 +47,18 @@ type model struct {
 	// renderDashboard and used by hitCard to map mouse coordinates.
 	cardW, cardH int
 
-	// dashboard state
-	dashLines []string
-	btnLine   int // full-content line index of the "open process manager" button
-	btnX0     int
-	btnX1     int
-	btnFound  bool
+	// dashboard cache
+	dashLines      []string
+	dashDirty      bool
+	footerLine     string
+	footerDirty    bool
+	lastFooterW    int
+
+	// "open process manager" button hit box (line index in dashLines + x span).
+	btnLine  int
+	btnX0    int
+	btnX1    int
+	btnFound bool
 
 	// process modal state (feature 7)
 	modal      bool
@@ -158,10 +164,11 @@ func New() *model {
 	SetTheme(cfg.Theme)
 
 	m := &model{
-		col:     collector.New(),
-		sortCol: sortPID,
-		sortAsc: true,
-		about:   aboutState{info: defaultAbout()},
+		col:       collector.New(),
+		sortCol:   sortPID,
+		sortAsc:   true,
+		about:     aboutState{info: defaultAbout()},
+		dashDirty: true,
 	}
 
 	// Pre-fill process lists from the on-disk cache so the memory/network/disk
@@ -209,6 +216,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
+		m.dashDirty = true
+		m.footerDirty = true
 		m.recompute()
 		return m, nil
 
@@ -219,6 +228,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.modal {
 			m.rebuildProcRows()
 		}
+		m.dashDirty = true
+		m.footerDirty = true
 		m.recompute()
 		// Cache-backed subsystems re-subscribe to the next cache update.
 		// On-demand subsystems schedule their next collection.
@@ -247,7 +258,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tickMsg:
 		m.snap.Time = time.Now()
-		m.recompute()
+		m.footerDirty = true
 		return m, tickCmd()
 
 	case tea.KeyMsg:
@@ -362,7 +373,14 @@ func (m *model) View() string {
 			lines = append(lines, "")
 		}
 	}
-	base := strings.Join(lines, "\n") + "\n" + m.dashFooter()
+	footer := m.footerLine
+	if m.footerDirty || m.lastFooterW != m.width {
+		footer = m.dashFooter()
+		m.footerLine = footer
+		m.lastFooterW = m.width
+		m.footerDirty = false
+	}
+	base := strings.Join(lines, "\n") + "\n" + footer
 
 	switch {
 	case m.themeDialog.active:
@@ -424,6 +442,7 @@ func (m *model) updateDashMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 		}
 		if msg.Button == tea.MouseButtonLeft || msg.Button == tea.MouseButtonNone {
 			m.updateDragScroll(msg.Y)
+			m.dashDirty = true
 			m.recompute()
 		}
 		return m, nil
@@ -438,6 +457,7 @@ func (m *model) updateDashMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 				delta = -1
 			}
 			cs.offset += delta
+			m.dashDirty = true
 			m.recompute()
 		}
 	case tea.MouseButtonLeft:
@@ -455,6 +475,7 @@ func (m *model) updateDashMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 			m.dragBodyY0 = bodyY0
 			m.dragBodyH = bodyH
 			m.dragContentH = contentH
+			m.dashDirty = true
 			m.recompute()
 			return m, nil
 		}
@@ -613,8 +634,11 @@ func (m *model) updateModalMouse(msg tea.MouseMsg) (tea.Model, tea.Cmd) {
 // ---- state helpers -----------------------------------------------------
 
 func (m *model) recompute() {
-	m.dashLines = m.renderDashboard()
-	m.rebuildMiniListMeta()
+	if m.dashDirty {
+		m.dashLines = m.renderDashboard()
+		m.rebuildMiniListMeta()
+		m.dashDirty = false
+	}
 	btnText := T(openProcLabel)
 	if line, x0, x1, ok := findText(m.dashLines, btnText); ok {
 		m.btnLine, m.btnX0, m.btnX1, m.btnFound = line, x0, x1, true
@@ -812,6 +836,7 @@ func (m *model) mergeSnap(s collector.Snapshot) {
 	if !s.Time.IsZero() {
 		m.snap.Time = s.Time
 	}
+	m.dashDirty = true
 }
 
 func (m *model) pushHistoryFor(part string) {

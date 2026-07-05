@@ -5,7 +5,30 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 )
+
+// spacesCache pre-generates common-width space strings to avoid repeated small
+// allocations in render hot paths. Widths beyond the cache fall back to
+// strings.Repeat.
+var spacesCache = func() []string {
+	const max = 200
+	s := make([]string, max+1)
+	for i := 0; i <= max; i++ {
+		s[i] = strings.Repeat(" ", i)
+	}
+	return s
+}()
+
+func spaces(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	if n < len(spacesCache) {
+		return spacesCache[n]
+	}
+	return strings.Repeat(" ", n)
+}
 
 func maxInt(a, b int) int {
 	if a > b {
@@ -21,44 +44,56 @@ func minInt(a, b int) int {
 	return b
 }
 
-// truncPlain truncates a plain (unstyled) string to width runes, adding an
+// stringWidth returns the visible cell width of s, stripping any ANSI SGR
+// sequences first so styled strings are measured as plain text. This is a faster
+// replacement for lipgloss.Width in hot paths.
+func stringWidth(s string) int {
+	return runewidth.StringWidth(stripANSI(s))
+}
+
+// truncPlain truncates a plain (unstyled) string to width cells, adding an
 // ellipsis when it overflows.
 func truncPlain(s string, width int) string {
 	if width <= 0 {
 		return ""
 	}
-	r := []rune(s)
-	if lipgloss.Width(s) <= width {
+	if runewidth.StringWidth(s) <= width {
 		return s
 	}
 	if width == 1 {
 		return "…"
 	}
-	for len(r) > 0 && lipgloss.Width(string(r))+1 > width {
-		r = r[:len(r)-1]
+	r := []rune(s)
+	w := 0
+	for i, c := range r {
+		rw := runewidth.RuneWidth(c)
+		if w+rw+1 > width {
+			return string(r[:i]) + "…"
+		}
+		w += rw
 	}
-	return string(r) + "…"
+	return s
 }
 
 // padRow right-pads a (possibly styled) line with spaces to exactly width cells.
 func padRow(s string, width int) string {
-	w := lipgloss.Width(s)
+	w := stringWidth(s)
 	if w >= width {
 		return s
 	}
-	return s + strings.Repeat(" ", width-w)
+	return s + spaces(width-w)
 }
 
 // joinLR places left and right on one line separated by filler spaces so the
 // total is exactly width cells. Right content is dropped if there is no room.
 func joinLR(left, right string, width int) string {
-	lw := lipgloss.Width(left)
-	rw := lipgloss.Width(right)
+	lw := stringWidth(left)
+	rw := stringWidth(right)
 	if lw+rw+1 > width {
 		return padRow(left, width)
 	}
 	gap := width - lw - rw
-	return left + strings.Repeat(" ", gap) + right
+	return left + spaces(gap) + right
 }
 
 // divider returns a full-width dim horizontal rule.
@@ -76,14 +111,14 @@ func fitCell(s string, width int, rightAlign bool) string {
 		return ""
 	}
 	s = truncPlain(s, width)
-	pad := width - lipgloss.Width(s)
+	pad := width - runewidth.StringWidth(s)
 	if pad < 0 {
 		pad = 0
 	}
 	if rightAlign {
-		return strings.Repeat(" ", pad) + s
+		return spaces(pad) + s
 	}
-	return s + strings.Repeat(" ", pad)
+	return s + spaces(pad)
 }
 
 var ansiRe = regexp.MustCompile(`\x1b\[[0-9;]*m`)
@@ -95,20 +130,22 @@ func stripANSI(s string) string { return ansiRe.ReplaceAllString(s, "") }
 // findText locates needle inside a slice of rendered (possibly styled) lines,
 // returning the line index and the visible column span [x0,x1) of the match.
 func findText(lines []string, needle string) (line, x0, x1 int, ok bool) {
+	needleW := runewidth.StringWidth(needle)
 	for i, l := range lines {
 		plain := stripANSI(l)
 		idx := strings.Index(plain, needle)
 		if idx < 0 {
 			continue
 		}
-		x0 = lipgloss.Width(plain[:idx])
-		x1 = x0 + lipgloss.Width(needle)
+		x0 = runewidth.StringWidth(plain[:idx])
+		x1 = x0 + needleW
 		return i, x0, x1, true
 	}
 	return 0, 0, 0, false
 }
 
-// lipglossFg is a shorthand for a foreground-only style.
+// lipglossFg returns a cached foreground-only style to avoid repeated allocations
+// in render hot paths.
 func lipglossFg(c lipgloss.Color) lipgloss.Style {
-	return lipgloss.NewStyle().Foreground(c)
+	return fgStyle(c)
 }

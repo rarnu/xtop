@@ -4,7 +4,6 @@ package collector
 
 import (
 	"context"
-	"sort"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/process"
@@ -114,21 +113,13 @@ func (c *Collector) collectProc(dt float64) ProcStat {
 	c.prevProcRead = nextRead
 	c.prevProcWrite = nextWrite
 
-	sort.Slice(list, func(i, j int) bool { return list[i].CPU > list[j].CPU })
-	top := topN(list, topProcCount)
-
-	memSorted := append([]ProcInfo(nil), list...)
-	sort.Slice(memSorted, func(i, j int) bool { return memSorted[i].MemRSS > memSorted[j].MemRSS })
-	topMem := topN(memSorted, topProcCount)
+	// Use Top-K heaps instead of full sorts: only the top 20 entries matter.
+	top := topKByCPU(list, topProcCount)
+	topMem := topKByMem(list, topProcCount)
 
 	var topDisk []ProcInfo
 	if procDiskSupported {
-		diskSorted := append([]ProcInfo(nil), list...)
-		sort.Slice(diskSorted, func(i, j int) bool {
-			return diskSorted[i].DiskReadPerSec+diskSorted[i].DiskWritePerSec >
-				diskSorted[j].DiskReadPerSec+diskSorted[j].DiskWritePerSec
-		})
-		topDisk = topN(diskSorted, topProcCount)
+		topDisk = topKByDisk(list, topProcCount)
 	}
 
 	return ProcStat{

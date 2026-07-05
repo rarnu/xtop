@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"os/exec"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -203,24 +202,15 @@ func topStateCode(s string) string {
 func publishProcs(c *Collector, list []ProcInfo) {
 	list = filterProcList(list)
 
-	// top is already sorted by CPU (because of -o cpu), but take a copy for the
-	// Top slice just in case.
-	topCPU := topN(list, topProcCount)
-
-	memSorted := append([]ProcInfo(nil), list...)
-	sort.Slice(memSorted, func(i, j int) bool { return memSorted[i].MemRSS > memSorted[j].MemRSS })
-	topMem := topN(memSorted, topProcCount)
+	// Avoid full sorts; use Top-K heaps to extract the top 20 by each metric.
+	topCPU := topKByCPU(list, topProcCount)
+	topMem := topKByMem(list, topProcCount)
 
 	applyDarwinDiskIO(c, list)
 
 	var topDisk []ProcInfo
 	if procDiskSupported {
-		diskSorted := append([]ProcInfo(nil), list...)
-		sort.Slice(diskSorted, func(i, j int) bool {
-			return diskSorted[i].DiskReadPerSec+diskSorted[i].DiskWritePerSec >
-				diskSorted[j].DiskReadPerSec+diskSorted[j].DiskWritePerSec
-		})
-		topDisk = topN(diskSorted, topProcCount)
+		topDisk = topKByDisk(list, topProcCount)
 	}
 
 	ps := ProcStat{

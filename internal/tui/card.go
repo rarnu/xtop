@@ -3,7 +3,7 @@ package tui
 import (
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
 )
 
 // renderCard draws a bordered card of fixed inner size and renders an optional
@@ -81,7 +81,7 @@ func applyScrollbar(visible []string, innerWidth, bodyH, sbY0, sbY1 int, hasSB b
 		contentW := innerWidth - scrollbarMargin
 		padCols := scrollbarMargin - 1
 		for i := range visible {
-			visible[i] = fitStyledLine(visible[i], contentW) + strings.Repeat(" ", padCols) + bar[i]
+			visible[i] = fitStyledLine(visible[i], contentW) + spaces(padCols) + bar[i]
 		}
 	}
 	for i := range visible {
@@ -99,7 +99,7 @@ func disabledCard(innerWidth, innerHeight int, icon, title, reason string) strin
 		if i < len(lines) {
 			rows = append(rows, padRow(lines[i], innerWidth))
 		} else {
-			rows = append(rows, strings.Repeat(" ", innerWidth))
+			rows = append(rows, spaces(innerWidth))
 		}
 	}
 	return styleCard(rows, innerWidth, innerHeight, false)
@@ -120,9 +120,9 @@ func styleCard(rows []string, innerWidth, innerHeight int, focused bool) string 
 // cells, preserving ANSI escape sequences. It pads with spaces if shorter.
 func fitStyledLine(s string, target int) string {
 	plain := stripANSI(s)
-	w := lipgloss.Width(plain)
+	w := runewidth.StringWidth(plain)
 	if w <= target {
-		return s + strings.Repeat(" ", target-w)
+		return s + spaces(target-w)
 	}
 	// Need to truncate while keeping styles.
 	out := truncateStyled(s, target)
@@ -148,7 +148,7 @@ func truncateStyled(s string, target int) string {
 			inESC = true
 			continue
 		}
-		rw := lipgloss.Width(string(r))
+		rw := runewidth.RuneWidth(r)
 		if visible+rw > target {
 			break
 		}
@@ -156,7 +156,7 @@ func truncateStyled(s string, target int) string {
 		visible += rw
 	}
 	if visible < target {
-		out.WriteString(strings.Repeat(" ", target-visible))
+		out.WriteString(spaces(target-visible))
 	}
 	return out.String()
 }
@@ -174,7 +174,7 @@ func cardBody(body []string, visibleH, innerWidth int, scroll *cardScroll) (line
 			if i < contentH && body[i] != "" {
 				lines[i] = padRow(body[i], innerWidth)
 			} else {
-				lines[i] = strings.Repeat(" ", innerWidth)
+				lines[i] = spaces(innerWidth)
 			}
 		}
 		scroll.max = 0
@@ -194,7 +194,7 @@ func cardBody(body []string, visibleH, innerWidth int, scroll *cardScroll) (line
 	for i := 0; i < visibleH; i++ {
 		line := body[scroll.offset+i]
 		if line == "" {
-			lines[i] = strings.Repeat(" ", innerWidth)
+			lines[i] = spaces(innerWidth)
 		} else {
 			lines[i] = padRow(line, innerWidth)
 		}
@@ -218,9 +218,9 @@ func renderScrollbar(visibleH, y0, y1 int) []string {
 	col := make([]string, visibleH)
 	for i := 0; i < visibleH; i++ {
 		if i >= y0 && i < y1 {
-			col[i] = lipgloss.NewStyle().Foreground(colGreen).Render("█")
+			col[i] = fgStyle(colGreen).Render("█")
 		} else {
-			col[i] = lipgloss.NewStyle().Foreground(colTrack).Render("│")
+			col[i] = fgStyle(colTrack).Render("│")
 		}
 	}
 	return col
