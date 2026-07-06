@@ -10,24 +10,22 @@ import (
 
 // aboutInfo describes the metadata shown in the about dialog.
 type aboutInfo struct {
-	Version     string
-	GitHub      string
-	License     string
-	GoVersion   string
-	BuildTime   string
-	Description string
+	Version   string
+	GitHub    string
+	License   string
+	GoVersion string
+	BuildTime string
 }
 
 // defaultAbout returns the static about metadata. These values can be overridden
 // at link time with -ldflags if desired.
 func defaultAbout() aboutInfo {
 	return aboutInfo{
-		Version:     version.Version,
-		GitHub:      "github.com/rarnu/xtop",
-		License:     "MIT",
-		GoVersion:   "",
-		BuildTime:   "",
-		Description: "A Matrix-green terminal system monitor.",
+		Version:   version.Version,
+		GitHub:    "github.com/rarnu/xtop",
+		License:   "GPLv3",
+		GoVersion: "",
+		BuildTime: "",
 	}
 }
 
@@ -92,7 +90,7 @@ func overlayAboutModal(m *model, base string) string {
 	}
 
 	rows = append(rows, "")
-	rows = append(rows, textStyle.Render(info.Description))
+	rows = append(rows, textStyle.Render(T("about.description")))
 
 	for len(rows) < innerH-1 {
 		rows = append(rows, strings.Repeat(" ", innerW))

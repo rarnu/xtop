@@ -132,6 +132,7 @@ func builtinDict() map[string]string {
 		"about.go":                "Go",
 		"about.build":             "Build",
 		"about.ok":                "OK",
+		"about.description":       "xtop is a terminal system monitor inspired by top. It displays CPU, memory, disk, GPU, network and process information in a compact 2x3 card dashboard, with mouse support and a built-in process manager.",
 		"label.used":              "Used",
 		"label.cached":            "Cached",
 		"label.free":              "Free",

@@ -4,7 +4,7 @@
 
 [English](./README.md)
 
-`xtop` 是一款受 `top` 启发的终端系统监控工具，采用 Matrix 绿色主题。它以紧凑的 2x3 卡片仪表盘展示 CPU、内存、磁盘、GPU、网络和进程信息，支持鼠标操作和内置进程管理器。
+`xtop` 是一款受 `top` 启发的终端系统监控工具。它以紧凑的 2x3 卡片仪表盘展示 CPU、内存、磁盘、GPU、网络和进程信息，支持鼠标操作和内置进程管理器。
 
 ![](screenshot/screenshot1.png)
 
